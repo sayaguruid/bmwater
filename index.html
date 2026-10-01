@@ -1,80 +1,55 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0284c7">
-<meta name="description" content="BM Water - Sistem Manajemen Depot Air Minum">
-<title>BM WATER</title>
-
-<!-- Preconnect ke Google Apps Script untuk mempercepat fetch pertama -->
-<link rel="preconnect" href="https://script.google.com" crossorigin>
-<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
-
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>BM Water</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<!-- ================= LOGIN ================= -->
-<div id="loginView" class="login-view">
-  <div class="login-card">
-    <div class="logo-circle">💧</div>
-    <h1>BM WATER</h1>
-    <p class="muted">Sistem Manajemen Depot Air Minum</p>
-    <form id="loginForm" autocomplete="on">
-      <div class="field">
-        <label for="loginUsername">Username</label>
-        <input type="text" id="loginUsername" autocomplete="username" required>
-      </div>
-      <div class="field">
-        <label for="loginPassword">Password</label>
-        <input type="password" id="loginPassword" autocomplete="current-password" required>
-      </div>
-      <button type="submit" class="btn-primary" id="loginBtn">Masuk</button>
-    </form>
+  <!-- LOGIN -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-box">
+      <h1>💧 BM Water</h1>
+      <p class="subtitle">Manajemen Depot Air Minum</p>
+      <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
+      <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
+      <button id="btnLogin" class="btn-primary">Masuk</button>
+      <p id="loginError" class="error-msg"></p>
+    </div>
   </div>
-</div>
 
-<!-- ================= APP ================= -->
-<div id="appView" class="app-view hidden">
+  <!-- APP -->
+  <div id="appScreen" class="screen">
+    <header class="app-header">
+      <div class="header-left">
+        <span id="headerTitle">Dashboard</span>
+      </div>
+      <div class="header-right">
+        <span id="headerUser" class="user-badge"></span>
+        <button id="btnLogout" class="btn-icon">⎋</button>
+      </div>
+    </header>
 
-  <header class="topbar">
-    <div class="brand"><span>💧</span> BM WATER</div>
-    <button class="menu-btn" id="menuBtn" aria-label="Menu">☰</button>
-  </header>
+    <main id="mainContent" class="main-content"></main>
 
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="user-name" id="userName">-</div>
-      <div class="user-role" id="userRole">-</div>
-    </div>
-    <nav class="nav" id="navMenu"></nav>
-    <div class="sidebar-footer">
-      <button class="btn-ghost" id="logoutBtn">Keluar</button>
-    </div>
-  </aside>
-
-  <main class="content" id="content"></main>
-
-  <nav class="bottom-nav" id="bottomNav"></nav>
-
-  <div class="overlay hidden" id="overlay"></div>
-</div>
-
-<!-- ================= TOAST ================= -->
-<div id="toast" class="toast"></div>
-
-<!-- ================= MODAL ================= -->
-<div id="modal" class="modal-wrap hidden">
-  <div class="modal">
-    <div class="modal-header">
-      <h3 id="modalTitle">Title</h3>
-      <button class="modal-close" id="modalClose" aria-label="Tutup">✕</button>
-    </div>
-    <div class="modal-body" id="modalBody"></div>
+    <nav id="bottomNav" class="bottom-nav"></nav>
   </div>
-</div>
 
-<script src="app.js"></script>
+  <!-- MODAL -->
+  <div id="modal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalTitle">Modal</h2>
+        <button id="modalClose" class="btn-icon">✕</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="app.js"></script>
 </body>
 </html>
