@@ -2,54 +2,27 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>BM Water</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#1e88e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>BM Water - Depot Air Minum</title>
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💧</text></svg>">
 </head>
 <body>
-
-  <!-- LOGIN -->
-  <div id="loginScreen" class="screen active">
-    <div class="login-box">
-      <h1>💧 BM Water</h1>
-      <p class="subtitle">Manajemen Depot Air Minum</p>
-      <input type="text" id="loginUsername" placeholder="Username" autocomplete="username">
-      <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password">
-      <button id="btnLogin" class="btn-primary">Masuk</button>
-      <p id="loginError" class="error-msg"></p>
-    </div>
+  <div id="root"></div>
+  <div id="loading" class="loading"><div class="spinner"></div></div>
+  <div id="toast" class="toast"></div>
+  <div id="modal-bg" class="modal-bg">
+    <div class="modal" id="modal"></div>
   </div>
-
-  <!-- APP -->
-  <div id="appScreen" class="screen">
-    <header class="app-header">
-      <div class="header-left">
-        <span id="headerTitle">Dashboard</span>
-      </div>
-      <div class="header-right">
-        <span id="headerUser" class="user-badge"></span>
-        <button id="btnLogout" class="btn-icon">⎋</button>
-      </div>
-    </header>
-
-    <main id="mainContent" class="main-content"></main>
-
-    <nav id="bottomNav" class="bottom-nav"></nav>
-  </div>
-
-  <!-- MODAL -->
-  <div id="modal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalTitle">Modal</h2>
-        <button id="modalClose" class="btn-icon">✕</button>
-      </div>
-      <div id="modalBody" class="modal-body"></div>
-    </div>
-  </div>
-
-  <div id="toast" class="toast hidden"></div>
-
   <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
