@@ -1,1319 +1,832 @@
-/**
- * ============================================================
- * BM WATER - FRONTEND (single file)
- * ============================================================
- * Ganti API_URL di bawah dengan Web App URL Apps Script Anda.
- * ============================================================
- */
+/*******************************************************
+ * BM WATER — FRONTEND
+ *******************************************************/
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbxR0iJihl0yzyMrTHIu4AR7v9KFxQ9JicLph1NAsdJPwOprXSdckdPdTctnvnNw8J7mfQ/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyvN2Rbnd7poGW_jvO7tA-yAArWzU0f7I2Pxxp_ecQT8Vc6Jjp3GI_pW50eN2C9q60/exec';
 
-// ============================================================
-// STATE
-// ============================================================
-let TOKEN = null;
-let USER  = null;
-
-const CACHE = {
-  customers: [],
-  agents: [],
-  prices:      { consumer: 10000, consumer2: 12000, agent: 8000 },
-  commissions: { consumer: 2000, agent: 1000 }
+const state = {
+  token: null,
+  user: null,
+  currentPage: 'dashboard',
+  cache: {}
 };
 
-// ============================================================
-// HELPERS
-// ============================================================
-const $  = s => document.querySelector(s);
-const $$ = s => document.querySelectorAll(s);
+// ====================== API ======================
 
-const fmtRp = n => 'Rp' + (Number(n) || 0).toLocaleString('id-ID');
-const esc   = s => String(s == null ? '' : s)
-  .replace(/&/g, '&amp;')
-  .replace(/</g, '&lt;')
-  .replace(/>/g, '&gt;')
-  .replace(/"/g, '&quot;')
-  .replace(/'/g, '&#39;');
+async function api(action, payload = {}) {
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, payload, token: state.token }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Terjadi kesalahan');
+    return json.data;
+  } catch (err) {
+    toast(err.message, 'error');
+    throw err;
+  }
+}
 
-let toastTimer;
-function toast(msg, type) {
+// ====================== UTIL ======================
+
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+
+function toast(msg, type = '') {
   const el = $('#toast');
   el.textContent = msg;
-  el.className = 'toast show' + (type ? ' ' + type : '');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.className = 'toast'; }, 2500);
+  el.className = 'toast ' + type;
+  setTimeout(() => el.classList.add('hidden'), 2500);
 }
 
-function openModal(title, html) {
+function formatRp(n) {
+  return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+}
+
+function showModal(title, bodyHtml) {
   $('#modalTitle').textContent = title;
-  $('#modalBody').innerHTML = html;
+  $('#modalBody').innerHTML = bodyHtml;
   $('#modal').classList.remove('hidden');
 }
+
 function closeModal() {
   $('#modal').classList.add('hidden');
+  $('#modalBody').innerHTML = '';
 }
 
-function setLoading(container) {
-  container.innerHTML = `
-    <div class="card">
-      <div style="height:14px;background:#e2e8f0;border-radius:6px;width:40%;margin-bottom:10px"></div>
-      <div style="height:28px;background:#e2e8f0;border-radius:6px;width:60%"></div>
-    </div>
-    <div class="card">
-      <div style="height:14px;background:#e2e8f0;border-radius:6px;width:30%;margin-bottom:10px"></div>
-      <div style="height:28px;background:#e2e8f0;border-radius:6px;width:50%"></div>
-    </div>`;
+function confirmAction(msg) {
+  return confirm(msg);
 }
 
-// ============================================================
-// API CLIENT + CACHE
-// ============================================================
-const API_CACHE = {};
-const CACHE_TTL = 30000; // 30 detik
+// ====================== LOGIN ======================
 
-const CACHEABLE = {
-  getSettings:    true,
-  getCustomers:   true,
-  getAgents:      true,
-  getGallonStock: true,
-  getInventory:   true,
-  getUsers:       true,
-  getDashboard:   false,
-  getTransactions:false,
-  getCommissions: false,
-  getProduction:  false,
-  getExpenses:    false,
-  getReports:     false
-};
+async function doLogin() {
+  const username = $('#loginUsername').value.trim();
+  const password = $('#loginPassword').value;
+  const errEl = $('#loginError');
+  errEl.textContent = '';
 
-async function api(action, data) {
-  data = data || {};
-  data.action = action;
-  if (TOKEN && action !== 'login') data.token = TOKEN;
-
-  // Cek cache
-  if (CACHEABLE[action]) {
-    const key = action + ':' + JSON.stringify(data);
-    const c = API_CACHE[key];
-    if (c && (Date.now() - c.ts) < CACHE_TTL) {
-      return c.data;
-    }
+  if (!username || !password) {
+    errEl.textContent = 'Username dan password wajib diisi';
+    return;
   }
 
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
+  try {
+    $('#btnLogin').textContent = 'Memuat...';
+    $('#btnLogin').disabled = true;
 
-  if (json.message && json.message.indexOf('Sesi tidak valid') !== -1) {
-    clearSession();
-    showLogin();
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'login', payload: { username, password } }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error);
+
+    state.token = json.data.token;
+    state.user = json.data.user;
+    localStorage.setItem('bm_token', state.token);
+    localStorage.setItem('bm_user', JSON.stringify(state.user));
+
+    enterApp();
+  } catch (err) {
+    errEl.textContent = err.message;
+  } finally {
+    $('#btnLogin').textContent = 'Masuk';
+    $('#btnLogin').disabled = false;
   }
-
-  if (CACHEABLE[action] && json.success) {
-    const key = action + ':' + JSON.stringify(data);
-    API_CACHE[key] = { data: json, ts: Date.now() };
-  }
-
-  return json;
 }
 
-function clearApiCache() {
-  Object.keys(API_CACHE).forEach(k => delete API_CACHE[k]);
-}
-
-// ============================================================
-// AUTH
-// ============================================================
-function saveSession(token, user) {
-  TOKEN = token;
-  USER = user;
-  localStorage.setItem('bm_token', token);
-  localStorage.setItem('bm_user', JSON.stringify(user));
-}
-function clearSession() {
-  TOKEN = null;
-  USER = null;
+function doLogout() {
+  if (!confirm('Keluar dari aplikasi?')) return;
   localStorage.removeItem('bm_token');
   localStorage.removeItem('bm_user');
-}
-function loadSession() {
-  TOKEN = localStorage.getItem('bm_token');
-  const raw = localStorage.getItem('bm_user');
-  if (raw) { try { USER = JSON.parse(raw); } catch (e) {} }
-  return !!(TOKEN && USER);
-}
-const isOwner    = () => USER && USER.role === 'OWNER';
-const isOperator = () => USER && USER.role === 'OPERATOR';
-
-// ============================================================
-// MENU DEFINITION
-// ============================================================
-const MENUS = [
-  { id:'dashboard',   icon:'📊', label:'Dashboard',        roles:['OWNER','OPERATOR'] },
-  { id:'transactions',icon:'🛒', label:'Penjualan',        roles:['OWNER','OPERATOR'] },
-  { id:'customers',   icon:'👥', label:'Konsumen',         roles:['OWNER','OPERATOR'] },
-  { id:'agents',      icon:'🏪', label:'Agen',             roles:['OWNER','OPERATOR'] },
-  { id:'production',  icon:'🏭', label:'Produksi',         roles:['OWNER','OPERATOR'] },
-  { id:'gallons',     icon:'💧', label:'Galon',            roles:['OWNER','OPERATOR'] },
-  { id:'inventory',   icon:'📦', label:'Stok',             roles:['OWNER','OPERATOR'] },
-  { id:'commission',  icon:'💰', label:'Komisi Saya',      roles:['OPERATOR'] },
-  { id:'commissions', icon:'💰', label:'Komisi Operator',  roles:['OWNER'] },
-  { id:'expenses',    icon:'💸', label:'Pengeluaran',      roles:['OWNER'] },
-  { id:'reports',     icon:'📈', label:'Laporan',          roles:['OWNER'] },
-  { id:'users',       icon:'👤', label:'Operator',         roles:['OWNER'] },
-  { id:'settings',    icon:'⚙️', label:'Pengaturan',       roles:['OWNER'] }
-];
-const BOTTOM = ['dashboard','transactions','production','gallons'];
-
-const EXPENSE_CATS = ['Air baku','Listrik','Bahan','Maintenance','Transportasi','Pembelian','Lainnya'];
-
-// ============================================================
-// ROUTER
-// ============================================================
-const ROUTES = {};
-
-function currentRoute() {
-  return (location.hash || '#dashboard').replace('#','');
+  state.token = null;
+  state.user = null;
+  location.reload();
 }
 
-async function navigate() {
-  const r = currentRoute();
-  const m = MENUS.find(x => x.id === r);
-  if (!m || !m.roles.includes(USER.role)) {
-    location.hash = 'dashboard';
-    return;
-  }
-
-  $$('#navMenu a').forEach(a => a.classList.toggle('active', a.dataset.route === r));
-  $$('#bottomNav a').forEach(a => a.classList.toggle('active', a.dataset.route === r));
-
-  const content = $('#content');
-  if (ROUTES[r]) await ROUTES[r](content);
-  else content.innerHTML = `<div class="empty"><span class="icon">🚧</span>Halaman belum tersedia</div>`;
-  window.scrollTo(0,0);
+function enterApp() {
+  $('#loginScreen').classList.remove('active');
+  $('#appScreen').classList.add('active');
+  $('#headerUser').textContent = state.user.name + ' · ' + state.user.role;
+  buildNav();
+  navigate('dashboard');
 }
 
-// ============================================================
-// ROUTE: DASHBOARD
-// ============================================================
-ROUTES.dashboard = async function(c) {
-  setLoading(c);
-  const r = await api('getDashboard');
-  if (!r.success) { c.innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
-  const d = r.data;
+// ====================== NAVIGATION ======================
 
-  if (d.role === 'OPERATOR') {
-    c.innerHTML = `
-      <h2 class="page-title">Dashboard</h2>
-      <div class="card hero-card">
-        <div class="card-title">Galon Hari Ini</div>
-        <div class="card-value">${d.today.quantity} galon</div>
-        <div class="card-sub">${d.today.transactions} transaksi</div>
-      </div>
-      <div class="grid-2">
-        <div class="card"><div class="card-title">Penjualan</div><div class="card-value">${fmtRp(d.today.amount)}</div></div>
-        <div class="card"><div class="card-title">Komisi Hari Ini</div><div class="card-value" style="color:var(--success)">${fmtRp(d.today.commission)}</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Komisi Bulan Ini</div>
-        <div class="card-value">${fmtRp(d.month.commission)}</div>
-      </div>
-      <div class="card">
-        <div class="card-title">Transaksi Terakhir</div>
-        ${renderRecent(d.recent)}
-      </div>
-    `;
-  } else {
-    c.innerHTML = `
-      <h2 class="page-title">Dashboard Owner</h2>
-      <div class="card hero-card">
-        <div class="card-title">Omzet Hari Ini</div>
-        <div class="card-value">${fmtRp(d.today.amount)}</div>
-        <div class="card-sub">${d.today.quantity} galon • ${d.today.transactions} transaksi</div>
-      </div>
-      <div class="grid-2">
-        <div class="card"><div class="card-title">Konsumen</div><div class="card-value">${fmtRp(d.today.consumer_amount)}</div></div>
-        <div class="card"><div class="card-title">Agen</div><div class="card-value">${fmtRp(d.today.agent_amount)}</div></div>
-        <div class="card"><div class="card-title">Komisi</div><div class="card-value" style="color:var(--warning)">${fmtRp(d.today.commission)}</div></div>
-        <div class="card"><div class="card-title">Pengeluaran</div><div class="card-value" style="color:var(--danger)">${fmtRp(d.today.expenses)}</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Laba Sementara</div>
-        <div class="card-value" style="color:var(--primary)">${fmtRp(d.today.profit)}</div>
-        <div class="card-sub">Omzet − Komisi − Pengeluaran</div>
-      </div>
+function buildNav() {
+  const isOwner = state.user.role === 'owner';
+  const items = isOwner ? [
+    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'penjualan', icon: '💰', label: 'Jual' },
+    { id: 'agen', icon: '🔄', label: 'Agen' },
+    { id: 'bahan', icon: '📦', label: 'Bahan' },
+    { id: 'more', icon: '☰', label: 'Lainnya' }
+  ] : [
+    { id: 'dashboard', icon: '📊', label: 'Dashboard' },
+    { id: 'penjualan', icon: '💰', label: 'Jual' },
+    { id: 'agen', icon: '🔄', label: 'Agen' },
+    { id: 'rekap', icon: '📋', label: 'Rekap' },
+    { id: 'more', icon: '☰', label: 'Lainnya' }
+  ];
+
+  $('#bottomNav').innerHTML = items.map(i =>
+    `<button class="nav-item" data-page="${i.id}">
+      <span class="nav-icon">${i.icon}</span>${i.label}
+    </button>`
+  ).join('');
+
+  $$('.nav-item').forEach(btn => {
+    btn.onclick = () => navigate(btn.dataset.page);
+  });
+}
+
+function navigate(page) {
+  state.currentPage = page;
+  $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+
+  const titles = {
+    dashboard: 'Dashboard', penjualan: 'Penjualan', agen: 'Galon Agen',
+    bahan: 'Bahan', rekap: 'Rekap Galon', more: 'Lainnya',
+    konsumen: 'Konsumen', komisi: 'Komisi', pengeluaran: 'Pengeluaran',
+    laporan: 'Laporan', pengaturan: 'Pengaturan', rekonsiliasi: 'Rekonsiliasi',
+    log: 'Log Aktivitas'
+  };
+  $('#headerTitle').textContent = titles[page] || 'BM Water';
+
+  const renderers = {
+    dashboard: renderDashboard,
+    penjualan: renderPenjualan,
+    agen: renderAgen,
+    bahan: renderBahan,
+    rekap: renderRekap,
+    more: renderMore,
+    konsumen: renderKonsumen,
+    komisi: renderKomisi,
+    pengeluaran: renderPengeluaran,
+    pengaturan: renderPengaturan,
+    rekonsiliasi: renderRekonsiliasi,
+    log: renderLog
+  };
+
+  const main = $('#mainContent');
+  main.innerHTML = '<div class="loading">Memuat...</div>';
+  (renderers[page] || renderDashboard)();
+}
+
+// ====================== DASHBOARD ======================
+
+async function renderDashboard() {
+  try {
+    const data = await api('getDashboard');
+    const isOwner = state.user.role === 'owner';
+
+    let html = `
       <div class="grid-2">
         <div class="card">
-          <div class="card-title">Bulan Ini</div>
-          <div class="card-value">${fmtRp(d.month.amount)}</div>
-          <div class="card-sub">${d.month.quantity} galon</div>
+          <div class="card-title">Omzet Hari Ini</div>
+          <div class="card-value small">${formatRp(data.omzet)}</div>
         </div>
         <div class="card">
-          <div class="card-title">7 Hari Terakhir</div>
-          ${d.last7.map(x => `<div class="stat-row"><span class="label">${x.date.slice(5)}</span><span class="value">${x.quantity}g</span></div>`).join('')}
+          <div class="card-title">Galon Terjual</div>
+          <div class="card-value small">${data.totalGalon}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Konsumen</div>
+          <div class="card-value small">${data.galonKonsumen} galon</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Agen</div>
+          <div class="card-value small">${data.galonAgen} galon</div>
         </div>
       </div>
+
       <div class="card">
-        <div class="card-title">Transaksi Terbaru</div>
-        ${renderRecent(d.recent)}
+        <div class="card-title">Komisi ${isOwner ? 'Operator' : 'Hari Ini'}</div>
+        <div class="card-value small">${formatRp(isOwner ? data.komisi : (data.komisiBelumDibayar || 0))}</div>
       </div>
     `;
-  }
-};
 
-function renderRecent(list) {
-  if (!list || !list.length) return `<div class="empty"><span class="icon">📭</span>Belum ada</div>`;
-  return list.map(t => `
-    <div class="stat-row">
-      <span class="label">
-        <span class="badge badge-${t.customer_type === 'AGENT' ? 'agent' : 'consumer'}">${t.customer_type === 'AGENT' ? 'Agen' : 'Konsumen'}</span>
-        ${esc(t.customer_name)}
-      </span>
-      <span class="value">${t.quantity}g • ${fmtRp(t.total_amount)}</span>
-    </div>
-  `).join('');
-}
-
-// ============================================================
-// ROUTE: PENJUALAN
-// ============================================================
-ROUTES.transactions = async function(c) {
-  setLoading(c);
-  await Promise.all([loadCustomers(), loadAgents()]);
-  const r = await api('getTransactions', { limit: 50 });
-  const trx = r.success ? r.data.transactions : [];
-
-  c.innerHTML = `
-    <h2 class="page-title">Penjualan</h2>
-    <button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showTrxForm()">+ Transaksi Baru</button>
-    <div id="trxList"></div>
-    <button class="fab" onclick="showTrxForm()">+</button>
-  `;
-  const el = $('#trxList');
-  if (!trx.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada transaksi</div>`;
-    return;
-  }
-  el.innerHTML = trx.map(t => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title">
-          <span class="badge badge-${t.customer_type === 'AGENT' ? 'agent' : 'consumer'}">${t.customer_type === 'AGENT' ? 'Agen' : 'Konsumen'}</span>
-          ${esc(t.customer_name)}
-        </div>
-        <div class="sub">${t.quantity} galon × ${fmtRp(t.price_per_gallon)} • ${esc(t.operator_name)} • ${t.date}</div>
-      </div>
-      <div class="right">${fmtRp(t.total_amount)}</div>
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: KONSUMEN
-// ============================================================
-ROUTES.customers = async function(c) {
-  setLoading(c);
-  await loadCustomers();
-  const owner = isOwner();
-
-  c.innerHTML = `
-    <h2 class="page-title">Konsumen</h2>
-    <button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showCustomerForm()">+ Tambah Konsumen</button>
-    <div id="custList"></div>
-    <button class="fab" onclick="showCustomerForm()">+</button>
-  `;
-  const el = $('#custList');
-  if (!CACHE.customers.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada konsumen</div>`;
-    return;
-  }
-  el.innerHTML = CACHE.customers.map(x => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title">${esc(x.name)}</div>
-        <div class="sub">${esc(x.address || '-')} • ${fmtRp(x.price)}/galon</div>
-      </div>
-      ${owner ? `<button class="btn-secondary btn-sm" onclick="showCustomerForm('${x.customer_id}')">Edit</button>` : ''}
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: AGEN
-// ============================================================
-ROUTES.agents = async function(c) {
-  setLoading(c);
-  await loadAgents();
-  const owner = isOwner();
-
-  c.innerHTML = `
-    <h2 class="page-title">Agen</h2>
-    ${owner ? `<button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showAgentForm()">+ Tambah Agen</button>` : ''}
-    <div id="agentList"></div>
-    ${owner ? `<button class="fab" onclick="showAgentForm()">+</button>` : ''}
-  `;
-  const el = $('#agentList');
-  if (!CACHE.agents.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada agen</div>`;
-    return;
-  }
-  el.innerHTML = CACHE.agents.map(x => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title">${esc(x.agent_name)}</div>
-        <div class="sub">${esc(x.owner_name || '-')} • ${esc(x.phone || '-')} • ${fmtRp(x.price)}/galon</div>
-      </div>
-      ${owner ? `<button class="btn-secondary btn-sm" onclick="showAgentForm('${x.agent_id}')">Edit</button>` : ''}
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: PRODUKSI
-// ============================================================
-ROUTES.production = async function(c) {
-  setLoading(c);
-  const r = await api('getProduction', { limit: 20 });
-  const list = r.success ? r.data.production : [];
-
-  c.innerHTML = `
-    <h2 class="page-title">Produksi</h2>
-    <button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showProductionForm()">+ Catat Produksi</button>
-    <div id="prodList"></div>
-    <button class="fab" onclick="showProductionForm()">+</button>
-  `;
-  const el = $('#prodList');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada produksi</div>`;
-    return;
-  }
-  el.innerHTML = list.map(p => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title">${p.quantity_good} galon layak jual</div>
-        <div class="sub">Produksi ${p.quantity_produced} • Reject ${p.quantity_reject} • ${esc(p.operator_name)} • ${p.date}</div>
-      </div>
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: GALON
-// ============================================================
-ROUTES.gallons = async function(c) {
-  setLoading(c);
-  const r = await api('getGallonStock');
-  const s = r.success ? r.data.summary : { READY:0, EMPTY:0, WASHING:0, DAMAGED:0, LOST:0 };
-  const hist = r.success ? r.data.history : [];
-
-  c.innerHTML = `
-    <h2 class="page-title">Stok Galon</h2>
-    <div class="grid-2">
-      <div class="card"><div class="card-title">Siap Jual</div><div class="card-value" style="color:var(--success)">${s.READY || 0}</div></div>
-      <div class="card"><div class="card-title">Kosong</div><div class="card-value">${s.EMPTY || 0}</div></div>
-      <div class="card"><div class="card-title">Dicuci</div><div class="card-value" style="color:var(--primary)">${s.WASHING || 0}</div></div>
-      <div class="card"><div class="card-title">Rusak</div><div class="card-value" style="color:var(--danger)">${s.DAMAGED || 0}</div></div>
-    </div>
-    <div class="card"><div class="card-title">Hilang</div><div class="card-value">${s.LOST || 0}</div></div>
-    <div class="grid-2" style="margin-top:12px">
-      <button class="btn-secondary" onclick="showGallonAdjust()">+/- Stok</button>
-      <button class="btn-secondary" onclick="showGallonTransfer()">Transfer</button>
-    </div>
-    <h3 style="margin:20px 0 12px;font-size:15px">Riwayat 20 Terakhir</h3>
-    <div>
-      ${hist.length
-        ? hist.map(h => `
-            <div class="list-item">
-              <div class="main">
-                <div class="title">${labelGallon(h.type)} ${Number(h.quantity) > 0 ? '+' : ''}${h.quantity}</div>
-                <div class="sub">${esc(h.user_name)} • ${h.timestamp}</div>
-              </div>
-            </div>`).join('')
-        : `<div class="empty"><span class="icon">📭</span>Belum ada</div>`}
-    </div>
-  `;
-};
-
-function labelGallon(t) {
-  return { READY:'Siap Jual', EMPTY:'Kosong', WASHING:'Dicuci', DAMAGED:'Rusak', LOST:'Hilang' }[t] || t;
-}
-
-// ============================================================
-// ROUTE: STOK BARANG
-// ============================================================
-ROUTES.inventory = async function(c) {
-  setLoading(c);
-  const r = await api('getInventory');
-  const items = r.success ? r.data.items : [];
-  window._invCache = items;
-
-  const owner = isOwner();
-  c.innerHTML = `
-    <h2 class="page-title">Stok Barang</h2>
-    ${owner ? `<button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showItemForm()">+ Tambah Barang</button>` : ''}
-    <div id="invList"></div>
-    ${owner ? `<button class="fab" onclick="showItemForm()">+</button>` : ''}
-  `;
-  const el = $('#invList');
-  if (!items.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada barang</div>`;
-    return;
-  }
-  el.innerHTML = items.map(i => {
-    const badge = i.status === 'HABIS' ? 'danger' : (i.status === 'MENIPIS' ? 'agent' : 'success');
-    return `
-      <div class="list-item">
-        <div class="main">
-          <div class="title"><span class="badge badge-${badge}">${i.status}</span> ${esc(i.item_name)}</div>
-          <div class="sub">Stok: ${i.stock} ${esc(i.unit)} • Min: ${i.min_stock}</div>
-        </div>
-        <div style="display:flex;gap:6px">
-          <button class="btn-secondary btn-sm" onclick="showAdjustStock('${i.item_id}')">+/-</button>
-          ${owner ? `<button class="btn-secondary btn-sm" onclick="showItemForm('${i.item_id}')">Edit</button>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-};
-
-// ============================================================
-// ROUTE: KOMISI SAYA (OPERATOR)
-// ============================================================
-ROUTES.commission = async function(c) {
-  setLoading(c);
-  const r = await api('getCommissions');
-  if (!r.success) { c.innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
-  const d = r.data;
-
-  c.innerHTML = `
-    <h2 class="page-title">Komisi Saya</h2>
-    <div class="card hero-card">
-      <div class="card-title">Total Komisi</div>
-      <div class="card-value">${fmtRp(d.total_commission)}</div>
-    </div>
-    <div class="grid-2">
-      <div class="card"><div class="card-title">Dibayar</div><div class="card-value" style="color:var(--success)">${fmtRp(d.total_paid)}</div></div>
-      <div class="card"><div class="card-title">Belum Dibayar</div><div class="card-value" style="color:var(--warning)">${fmtRp(d.outstanding)}</div></div>
-    </div>
-    <h3 style="margin:20px 0 12px;font-size:15px">Detail Komisi</h3>
-    ${(d.details && d.details.length)
-      ? d.details.map(x => `
-          <div class="list-item">
-            <div class="main">
-              <div class="title">${x.quantity} galon ${x.customer_type === 'AGENT' ? '(agen)' : '(konsumen)'}</div>
-              <div class="sub">${fmtRp(x.commission_per_gallon)}/galon • ${x.timestamp}</div>
+    if (isOwner && data.kontrol) {
+      html += `<h3 style="margin: 20px 0 12px; font-size: 15px;">⚠️ Kontrol Operasional</h3>`;
+      data.kontrol.forEach(k => {
+        html += `
+          <div class="kontrol-item ${k.status}">
+            <div class="kontrol-header">
+              <span class="kontrol-label">${statusIcon(k.status)} ${k.label}</span>
+              <span class="kontrol-status">${statusText(k.status)}</span>
             </div>
-            <div class="right">${fmtRp(x.commission_amount)}</div>
-          </div>`).join('')
-      : `<div class="empty"><span class="icon">📭</span>Belum ada</div>`}
-  `;
-};
-
-// ============================================================
-// ROUTE: KOMISI OPERATOR (OWNER)
-// ============================================================
-ROUTES.commissions = async function(c) {
-  setLoading(c);
-  const r = await api('getCommissions');
-  if (!r.success) { c.innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
-  const ops = r.data.operators || [];
-
-  c.innerHTML = `
-    <h2 class="page-title">Komisi Operator</h2>
-    ${!ops.length ? `<div class="empty"><span class="icon">📭</span>Belum ada operator</div>` : ''}
-    ${ops.map(op => `
-      <div class="card">
-        <div class="card-title">${esc(op.operator_name)} (@${esc(op.username)})</div>
-        <div class="stat-row"><span class="label">Total Galon</span><span class="value">${op.total_quantity}</span></div>
-        <div class="stat-row"><span class="label">Total Komisi</span><span class="value">${fmtRp(op.total_commission)}</span></div>
-        <div class="stat-row"><span class="label">Dibayar</span><span class="value" style="color:var(--success)">${fmtRp(op.total_paid)}</span></div>
-        <div class="stat-row"><span class="label">Sisa</span><span class="value" style="color:var(--warning)">${fmtRp(op.outstanding)}</span></div>
-        ${op.outstanding > 0
-          ? `<button class="btn-primary btn-block" style="margin-top:12px"
-              onclick='showPayForm("${op.operator_id}","${esc(op.operator_name)}",${op.outstanding})'>
-              Bayar Komisi
-             </button>`
-          : ''}
-      </div>
-    `).join('')}
-    <h3 style="margin:20px 0 12px;font-size:15px">Riwayat Pembayaran</h3>
-    <div id="payHist"></div>
-  `;
-
-  const pr = await api('getCommissionPayments');
-  const pays = (pr.success && pr.data.payments) ? pr.data.payments : [];
-  $('#payHist').innerHTML = pays.length
-    ? pays.map(p => `
-        <div class="list-item">
-          <div class="main">
-            <div class="title">${esc(p.operator_name)}</div>
-            <div class="sub">${p.date} • oleh ${esc(p.user_name)}</div>
+            <div class="kontrol-msg">${k.message || ''}</div>
           </div>
-          <div class="right">${fmtRp(p.amount)}</div>
-        </div>`).join('')
-    : `<div class="empty"><span class="icon">📭</span>Belum ada</div>`;
-};
-
-// ============================================================
-// ROUTE: PENGELUARAN
-// ============================================================
-ROUTES.expenses = async function(c) {
-  setLoading(c);
-  const r = await api('getExpenses', { limit: 50 });
-  const list = r.success ? r.data.expenses : [];
-  const total = list.reduce((s, e) => s + Number(e.amount || 0), 0);
-
-  c.innerHTML = `
-    <h2 class="page-title">Pengeluaran</h2>
-    <div class="card hero-card">
-      <div class="card-title">Total (50 terakhir)</div>
-      <div class="card-value">${fmtRp(total)}</div>
-    </div>
-    <button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showExpenseForm()">+ Catat Pengeluaran</button>
-    <div id="expList"></div>
-    <button class="fab" onclick="showExpenseForm()">+</button>
-  `;
-  const el = $('#expList');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada</div>`;
-    return;
-  }
-  el.innerHTML = list.map(e => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title"><span class="badge badge-agent">${esc(e.category)}</span> ${esc(e.description)}</div>
-        <div class="sub">${e.date} • ${esc(e.user_name)}</div>
-      </div>
-      <div class="right" style="color:var(--danger)">${fmtRp(e.amount)}</div>
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: LAPORAN
-// ============================================================
-let currentReport = 'sales';
-
-const REPORTS = {
-  presetRange(p) {
-    const t = new Date();
-    const f = d => d.toISOString().slice(0, 10);
-    if (p === 'today') return { from: f(t), to: f(t) };
-    if (p === 'week')  { const s = new Date(t); s.setDate(t.getDate() - 6); return { from: f(s), to: f(t) }; }
-    if (p === 'month') { const s = new Date(t.getFullYear(), t.getMonth(), 1); return { from: f(s), to: f(t) }; }
-    return { from: '', to: '' };
-  }
-};
-
-ROUTES.reports = async function(c) {
-  const r = REPORTS.presetRange('month');
-  c.innerHTML = `
-    <h2 class="page-title">Laporan</h2>
-    <div class="tabs">
-      <button class="tab active" data-r="sales" onclick="switchReport('sales',this)">Penjualan</button>
-      <button class="tab" data-r="commission" onclick="switchReport('commission',this)">Komisi</button>
-      <button class="tab" data-r="finance" onclick="switchReport('finance',this)">Keuangan</button>
-    </div>
-    <div class="card">
-      <div class="grid-2">
-        <div class="form-group" style="margin:0">
-          <label>Dari</label><input type="date" id="rep_from" value="${r.from}">
-        </div>
-        <div class="form-group" style="margin:0">
-          <label>Sampai</label><input type="date" id="rep_to" value="${r.to}">
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn-secondary btn-sm" onclick="setPreset('today')">Hari Ini</button>
-        <button class="btn-secondary btn-sm" onclick="setPreset('week')">7 Hari</button>
-        <button class="btn-secondary btn-sm" onclick="setPreset('month')">Bulan Ini</button>
-        <button class="btn-primary btn-sm" onclick="applyReport()">Terapkan</button>
-      </div>
-    </div>
-    <div id="reportContent"></div>
-  `;
-  await loadReport();
-};
-
-async function loadReport() {
-  const from = $('#rep_from').value;
-  const to   = $('#rep_to').value;
-  $('#reportContent').innerHTML = `<div class="empty"><span class="icon">⏳</span>Memuat...</div>`;
-  const r = await api('getReports', { report_type: currentReport, from, to });
-  if (!r.success) {
-    $('#reportContent').innerHTML = `<div class="empty">${esc(r.message)}</div>`;
-    return;
-  }
-  renderReport(r.data);
-}
-
-function renderReport(d) {
-  const el = $('#reportContent');
-  if (d.report_type === 'sales') {
-    el.innerHTML = `
-      <div class="card hero-card">
-        <div class="card-title">Omzet</div>
-        <div class="card-value">${fmtRp(d.summary.amount)}</div>
-        <div class="card-sub">${d.summary.quantity} galon • ${d.summary.transactions} transaksi</div>
-      </div>
-      <div class="grid-2">
-        <div class="card"><div class="card-title">Konsumen</div><div class="card-value">${fmtRp(d.summary.consumer_amount)}</div><div class="card-sub">${d.summary.consumer_quantity} galon</div></div>
-        <div class="card"><div class="card-title">Agen</div><div class="card-value">${fmtRp(d.summary.agent_amount)}</div><div class="card-sub">${d.summary.agent_quantity} galon</div></div>
-      </div>
-      <h3 style="margin:16px 0 8px;font-size:15px">Harian</h3>
-      ${d.daily.length
-        ? d.daily.map(x => `
-            <div class="list-item">
-              <div class="main"><div class="title">${x.date}</div><div class="sub">${x.quantity} galon • ${x.transactions} transaksi</div></div>
-              <div class="right">${fmtRp(x.amount)}</div>
-            </div>`).join('')
-        : `<div class="empty"><span class="icon">📭</span>Tidak ada data</div>`}
-    `;
-  } else if (d.report_type === 'commission') {
-    el.innerHTML = `
-      <div class="card hero-card">
-        <div class="card-title">Total Komisi</div>
-        <div class="card-value">${fmtRp(d.summary.total_commission)}</div>
-        <div class="card-sub">Dibayar: ${fmtRp(d.summary.total_paid)} • Sisa: ${fmtRp(d.summary.outstanding)}</div>
-      </div>
-      ${d.operators.length
-        ? d.operators.map(op => `
-            <div class="card">
-              <div class="card-title">${esc(op.operator_name)}</div>
-              <div class="stat-row"><span class="label">Konsumen</span><span class="value">${op.consumer_quantity}g</span></div>
-              <div class="stat-row"><span class="label">Agen</span><span class="value">${op.agent_quantity}g</span></div>
-              <div class="stat-row"><span class="label">Komisi</span><span class="value">${fmtRp(op.total_commission)}</span></div>
-              <div class="stat-row"><span class="label">Sisa</span><span class="value" style="color:var(--warning)">${fmtRp(op.outstanding)}</span></div>
-            </div>`).join('')
-        : `<div class="empty"><span class="icon">📭</span>Tidak ada data</div>`}
-    `;
-  } else {
-    el.innerHTML = `
-      <div class="card hero-card">
-        <div class="card-title">Laba Sementara</div>
-        <div class="card-value">${fmtRp(d.summary.profit)}</div>
-        <div class="card-sub">${d.summary.note}</div>
-      </div>
-      <div class="card">
-        <div class="stat-row"><span class="label">Pendapatan</span><span class="value" style="color:var(--success)">${fmtRp(d.summary.revenue)}</span></div>
-        <div class="stat-row"><span class="label">Komisi</span><span class="value" style="color:var(--warning)">- ${fmtRp(d.summary.commission)}</span></div>
-        <div class="stat-row"><span class="label">Pengeluaran</span><span class="value" style="color:var(--danger)">- ${fmtRp(d.summary.expense)}</span></div>
-        <div class="stat-row" style="border-top:2px solid var(--gray-200);margin-top:6px;padding-top:10px">
-          <span class="label" style="font-weight:700">Laba</span>
-          <span class="value" style="color:var(--primary);font-size:16px">${fmtRp(d.summary.profit)}</span>
-        </div>
-      </div>
-      <h3 style="margin:16px 0 8px;font-size:15px">Pengeluaran per Kategori</h3>
-      ${d.expense_by_category.length
-        ? d.expense_by_category.map(x => `
-            <div class="list-item">
-              <div class="main"><div class="title">${esc(x.category)}</div></div>
-              <div class="right" style="color:var(--danger)">${fmtRp(x.amount)}</div>
-            </div>`).join('')
-        : `<div class="empty"><span class="icon">📭</span>Tidak ada</div>`}
-    `;
-  }
-}
-
-// ============================================================
-// ROUTE: OPERATOR (USERS)
-// ============================================================
-ROUTES.users = async function(c) {
-  setLoading(c);
-  const r = await api('getUsers');
-  const all = r.success ? r.data.users : [];
-  window._userCache = all;
-  const list = all.filter(u => u.role === 'OPERATOR');
-
-  c.innerHTML = `
-    <h2 class="page-title">Manajemen Operator</h2>
-    <button class="btn-primary btn-block" style="margin-bottom:16px" onclick="showUserForm()">+ Tambah Operator</button>
-    <div id="userList"></div>
-    <button class="fab" onclick="showUserForm()">+</button>
-  `;
-  const el = $('#userList');
-  if (!list.length) {
-    el.innerHTML = `<div class="empty"><span class="icon">📭</span>Belum ada operator</div>`;
-    return;
-  }
-  el.innerHTML = list.map(u => `
-    <div class="list-item">
-      <div class="main">
-        <div class="title">${esc(u.name)}</div>
-        <div class="sub">@${esc(u.username)} • <span class="badge badge-${u.status === 'ACTIVE' ? 'success' : 'danger'}">${u.status}</span></div>
-      </div>
-      <button class="btn-secondary btn-sm" onclick="showUserForm('${u.user_id}')">Edit</button>
-    </div>
-  `).join('');
-};
-
-// ============================================================
-// ROUTE: PENGATURAN
-// ============================================================
-ROUTES.settings = async function(c) {
-  setLoading(c);
-  const r = await api('getSettings');
-  if (!r.success) { c.innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
-  const s = r.data.settings;
-
-  c.innerHTML = `
-    <h2 class="page-title">Pengaturan</h2>
-    <div class="card">
-      <div class="card-title">Harga</div>
-      <div class="form-group"><label>Konsumen 1</label><input type="number" id="s_pc1" value="${s.price_consumer_1 || 10000}"></div>
-      <div class="form-group"><label>Konsumen 2</label><input type="number" id="s_pc2" value="${s.price_consumer_2 || 12000}"></div>
-      <div class="form-group"><label>Agen</label><input type="number" id="s_pa" value="${s.price_agent || 8000}"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Komisi</div>
-      <div class="form-group"><label>Komisi Konsumen / galon</label><input type="number" id="s_cc" value="${s.commission_consumer || 2000}"></div>
-      <div class="form-group"><label>Komisi Agen / galon</label><input type="number" id="s_ca" value="${s.commission_agent || 1000}"></div>
-    </div>
-    <div class="card">
-      <div class="card-title">Operasional</div>
-      <div class="form-group">
-        <label>Auto kurangi galon READY saat penjualan</label>
-        <select id="s_auto">
-          <option value="0" ${String(s.auto_deduct_gallon) === '0' ? 'selected' : ''}>Tidak</option>
-          <option value="1" ${String(s.auto_deduct_gallon) === '1' ? 'selected' : ''}>Ya</option>
-        </select>
-      </div>
-    </div>
-    <button class="btn-primary btn-block" onclick="saveSettingsForm()">Simpan</button>
-  `;
-};
-
-// ============================================================
-// CACHE LOADERS
-// ============================================================
-async function loadCustomers() {
-  const r = await api('getCustomers');
-  CACHE.customers = r.success ? r.data.customers : [];
-  return CACHE.customers;
-}
-
-async function loadAgents() {
-  const r = await api('getAgents');
-  CACHE.agents = r.success ? r.data.agents : [];
-  return CACHE.agents;
-}
-
-async function refreshCache() {
-  const r = await api('getSettings');
-  if (r.success) {
-    const s = r.data.settings;
-    CACHE.prices = {
-      consumer:  parseInt(s.price_consumer_1, 10) || 10000,
-      consumer2: parseInt(s.price_consumer_2, 10) || 12000,
-      agent:     parseInt(s.price_agent, 10)      || 8000
-    };
-    CACHE.commissions = {
-      consumer: parseInt(s.commission_consumer, 10) || 2000,
-      agent:    parseInt(s.commission_agent, 10)    || 1000
-    };
-  }
-}
-
-// ============================================================
-// SUBMIT HELPER (auto clear cache + reload)
-// ============================================================
-async function submitAndReload(action, payload) {
-  const r = await api(action, payload);
-  if (r.success) {
-    toast(r.message, 'success');
-    clearApiCache();
-    closeModal();
-    navigate();
-  } else {
-    toast(r.message, 'error');
-  }
-  return r;
-}
-
-// ============================================================
-// FORMS
-// ============================================================
-
-// ----- Customer -----
-window.showCustomerForm = function(id) {
-  const c = id ? CACHE.customers.find(x => x.customer_id === id) : null;
-  const owner = isOwner();
-  const priceLocked = c && !owner;
-
-  openModal(id ? 'Edit Konsumen' : 'Tambah Konsumen', `
-    <div class="form-group"><label>Nama</label><input type="text" id="f_name" value="${c ? esc(c.name) : ''}"></div>
-    <div class="form-group"><label>Alamat</label><input type="text" id="f_addr" value="${c ? esc(c.address || '') : ''}"></div>
-    <div class="form-group">
-      <label>Harga ${priceLocked ? '(tidak bisa diubah)' : ''}</label>
-      <select id="f_price" ${priceLocked ? 'disabled' : ''}>
-        <option value="10000" ${c && Number(c.price) === 10000 ? 'selected' : ''}>Rp10.000</option>
-        <option value="12000" ${c && Number(c.price) === 12000 ? 'selected' : ''}>Rp12.000</option>
-      </select>
-    </div>
-    <button class="btn-primary btn-block" onclick="submitCustomer('${id || ''}')">Simpan</button>
-  `);
-};
-
-window.submitCustomer = async function(id) {
-  await submitAndReload('saveCustomer', {
-    customer_id: id || undefined,
-    name: $('#f_name').value,
-    address: $('#f_addr').value,
-    price: parseInt($('#f_price').value, 10)
-  });
-};
-
-// ----- Agent -----
-window.showAgentForm = function(id) {
-  const a = id ? CACHE.agents.find(x => x.agent_id === id) : null;
-  openModal(id ? 'Edit Agen' : 'Tambah Agen', `
-    <div class="form-group"><label>Nama Agen</label><input type="text" id="f_agn" value="${a ? esc(a.agent_name) : ''}"></div>
-    <div class="form-group"><label>Nama Pemilik</label><input type="text" id="f_ago" value="${a ? esc(a.owner_name || '') : ''}"></div>
-    <div class="form-group"><label>No HP/WA</label><input type="text" id="f_agp" value="${a ? esc(a.phone || '') : ''}"></div>
-    <div class="form-group"><label>Alamat</label><input type="text" id="f_aga" value="${a ? esc(a.address || '') : ''}"></div>
-    <div class="form-group"><label>Catatan</label><textarea id="f_agnotes" rows="2">${a ? esc(a.notes || '') : ''}</textarea></div>
-    <button class="btn-primary btn-block" onclick="submitAgent('${id || ''}')">Simpan</button>
-  `);
-};
-
-window.submitAgent = async function(id) {
-  await submitAndReload('saveAgent', {
-    agent_id: id || undefined,
-    agent_name: $('#f_agn').value,
-    owner_name: $('#f_ago').value,
-    phone: $('#f_agp').value,
-    address: $('#f_aga').value,
-    notes: $('#f_agnotes').value
-  });
-};
-
-// ----- Transaction -----
-window.showTrxForm = async function() {
-  await refreshCache();
-  if (!CACHE.customers.length) await loadCustomers();
-  if (!CACHE.agents.length)    await loadAgents();
-
-  openModal('Transaksi Baru', `
-    <div class="form-group">
-      <label>Tipe Pelanggan</label>
-      <select id="f_type" onchange="onTrxType()">
-        <option value="CONSUMER">Konsumen</option>
-        <option value="AGENT">Agen</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Pelanggan</label>
-      <select id="f_cust" onchange="recalcTrx()"></select>
-    </div>
-    <div class="form-group">
-      <label>Jumlah Galon</label>
-      <input type="number" id="f_qty" min="1" value="1" oninput="recalcTrx()">
-    </div>
-    <div class="calc-box">
-      <div class="calc-row"><span>Harga/galon</span><span id="c_price">Rp0</span></div>
-      <div class="calc-row"><span>Komisi/galon</span><span id="c_comm">Rp0</span></div>
-      <div class="calc-row total"><span>Total Bayar</span><span id="c_total">Rp0</span></div>
-      <div class="calc-row"><span>Komisi Anda</span><span id="c_ctot">Rp0</span></div>
-    </div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_notes"></div>
-    <button class="btn-primary btn-block" onclick="submitTrx()">Simpan</button>
-  `);
-  onTrxType();
-};
-
-window.onTrxType = function() {
-  const t = $('#f_type').value;
-  const list = t === 'AGENT' ? CACHE.agents : CACHE.customers;
-  $('#f_cust').innerHTML = list.length
-    ? list.map(x => `<option value="${t === 'AGENT' ? x.agent_id : x.customer_id}">${esc(t === 'AGENT' ? x.agent_name : x.name)}</option>`).join('')
-    : `<option value="">-- Belum ada --</option>`;
-  recalcTrx();
-};
-
-window.recalcTrx = function() {
-  const t = $('#f_type').value;
-  const id = $('#f_cust').value;
-  const qty = parseInt($('#f_qty').value, 10) || 0;
-  let price = 0;
-  if (t === 'CONSUMER') {
-    const c = CACHE.customers.find(x => x.customer_id === id);
-    price = c ? Number(c.price) : 0;
-  } else {
-    const a = CACHE.agents.find(x => x.agent_id === id);
-    price = a ? Number(a.price) : 0;
-  }
-  const comm = t === 'AGENT' ? CACHE.commissions.agent : CACHE.commissions.consumer;
-  $('#c_price').textContent = fmtRp(price);
-  $('#c_comm').textContent  = fmtRp(comm);
-  $('#c_total').textContent = fmtRp(qty * price);
-  $('#c_ctot').textContent  = fmtRp(qty * comm);
-};
-
-window.submitTrx = async function() {
-  const cid = $('#f_cust').value;
-  const qty = parseInt($('#f_qty').value, 10);
-  if (!cid) return toast('Pilih pelanggan', 'error');
-  if (!qty || qty <= 0) return toast('Jumlah tidak valid', 'error');
-  await submitAndReload('createTransaction', {
-    customer_type: $('#f_type').value,
-    customer_id: cid,
-    quantity: qty,
-    notes: $('#f_notes').value
-  });
-};
-
-// ----- Production -----
-window.showProductionForm = function() {
-  openModal('Catat Produksi', `
-    <div class="form-group"><label>Jumlah Produksi</label><input type="number" id="f_prodq" min="1" value="1" oninput="recalcProd()"></div>
-    <div class="form-group"><label>Reject</label><input type="number" id="f_prodr" min="0" value="0" oninput="recalcProd()"></div>
-    <div class="calc-box"><div class="calc-row total"><span>Layak Jual</span><span id="c_prodg">0</span></div></div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_prodn"></div>
-    <button class="btn-primary btn-block" onclick="submitProd()">Simpan</button>
-  `);
-  recalcProd();
-};
-
-window.recalcProd = function() {
-  const q = parseInt($('#f_prodq').value, 10) || 0;
-  const r = parseInt($('#f_prodr').value, 10) || 0;
-  $('#c_prodg').textContent = Math.max(0, q - r);
-};
-
-window.submitProd = async function() {
-  await submitAndReload('saveProduction', {
-    quantity_produced: parseInt($('#f_prodq').value, 10),
-    quantity_reject:   parseInt($('#f_prodr').value, 10) || 0,
-    notes: $('#f_prodn').value
-  });
-};
-
-// ----- Gallon adjust/transfer -----
-window.showGallonAdjust = function() {
-  openModal('Penyesuaian Stok Galon', `
-    <div class="form-group">
-      <label>Tipe</label>
-      <select id="f_gtype">
-        <option value="READY">Siap Jual</option>
-        <option value="EMPTY">Kosong</option>
-        <option value="WASHING">Dicuci</option>
-        <option value="DAMAGED">Rusak</option>
-        <option value="LOST">Hilang</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Jumlah (+/-)</label><input type="number" id="f_gq" value="1"></div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_gn"></div>
-    <button class="btn-primary btn-block" onclick="submitGallonAdjust()">Simpan</button>
-  `);
-};
-
-window.submitGallonAdjust = async function() {
-  await submitAndReload('updateGallonStock', {
-    type: $('#f_gtype').value,
-    quantity: parseInt($('#f_gq').value, 10),
-    notes: $('#f_gn').value
-  });
-};
-
-window.showGallonTransfer = function() {
-  openModal('Transfer Stok Galon', `
-    <div class="form-group">
-      <label>Dari</label>
-      <select id="f_gfrom">
-        <option value="EMPTY">Kosong</option>
-        <option value="WASHING">Dicuci</option>
-        <option value="READY">Siap Jual</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Ke</label>
-      <select id="f_gto">
-        <option value="WASHING">Dicuci</option>
-        <option value="READY">Siap Jual</option>
-        <option value="DAMAGED">Rusak</option>
-        <option value="LOST">Hilang</option>
-      </select>
-    </div>
-    <div class="form-group"><label>Jumlah</label><input type="number" id="f_gtq" min="1" value="1"></div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_gtn"></div>
-    <button class="btn-primary btn-block" onclick="submitGallonTransfer()">Transfer</button>
-  `);
-};
-
-window.submitGallonTransfer = async function() {
-  await submitAndReload('transferGallonStock', {
-    from_type: $('#f_gfrom').value,
-    to_type:   $('#f_gto').value,
-    quantity:  parseInt($('#f_gtq').value, 10),
-    notes: $('#f_gtn').value
-  });
-};
-
-// ----- Inventory -----
-window.showItemForm = function(id) {
-  const list = window._invCache || [];
-  const it = id ? list.find(x => x.item_id === id) : null;
-  openModal(id ? 'Edit Barang' : 'Tambah Barang', `
-    <div class="form-group"><label>Nama</label><input type="text" id="f_in" value="${it ? esc(it.item_name) : ''}"></div>
-    <div class="form-group"><label>Satuan</label><input type="text" id="f_iu" value="${it ? esc(it.unit) : 'pcs'}"></div>
-    <div class="form-group"><label>Stok Awal</label><input type="number" id="f_is" value="${it ? it.stock : 0}"></div>
-    <div class="form-group"><label>Stok Minimum</label><input type="number" id="f_im" value="${it ? it.min_stock : 0}"></div>
-    <button class="btn-primary btn-block" onclick="submitItem('${id || ''}')">Simpan</button>
-  `);
-};
-
-window.submitItem = async function(id) {
-  await submitAndReload('saveInventoryItem', {
-    item_id: id || undefined,
-    item_name: $('#f_in').value,
-    unit: $('#f_iu').value,
-    stock: parseInt($('#f_is').value, 10) || 0,
-    min_stock: parseInt($('#f_im').value, 10) || 0
-  });
-};
-
-window.showAdjustStock = function(id) {
-  openModal('Penyesuaian Stok', `
-    <div class="form-group"><label>Perubahan (+/-)</label><input type="number" id="f_asd" value="1"></div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_asn"></div>
-    <button class="btn-primary btn-block" onclick="submitAdjustStock('${id}')">Simpan</button>
-  `);
-};
-
-window.submitAdjustStock = async function(id) {
-  await submitAndReload('adjustInventoryStock', {
-    item_id: id,
-    delta: parseInt($('#f_asd').value, 10),
-    notes: $('#f_asn').value
-  });
-};
-
-// ----- Expense -----
-window.showExpenseForm = function() {
-  openModal('Catat Pengeluaran', `
-    <div class="form-group">
-      <label>Kategori</label>
-      <select id="f_ec">${EXPENSE_CATS.map(c => `<option>${c}</option>`).join('')}</select>
-    </div>
-    <div class="form-group"><label>Keterangan</label><input type="text" id="f_ed"></div>
-    <div class="form-group"><label>Nominal</label><input type="number" id="f_ea" min="1"></div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_en"></div>
-    <button class="btn-primary btn-block" onclick="submitExpense()">Simpan</button>
-  `);
-};
-
-window.submitExpense = async function() {
-  const amt = parseInt($('#f_ea').value, 10);
-  if (!amt || amt <= 0) return toast('Nominal tidak valid', 'error');
-  if (!$('#f_ed').value) return toast('Keterangan wajib', 'error');
-  await submitAndReload('saveExpense', {
-    category: $('#f_ec').value,
-    description: $('#f_ed').value,
-    amount: amt,
-    notes: $('#f_en').value
-  });
-};
-
-// ----- Commission payment -----
-window.showPayForm = function(opId, name, outstanding) {
-  const today = new Date().toISOString().slice(0, 10);
-  openModal('Bayar Komisi', `
-    <div style="margin-bottom:12px">
-      <strong>${esc(name)}</strong><br>
-      <small style="color:var(--warning)">Sisa: ${fmtRp(outstanding)}</small>
-    </div>
-    <div class="form-group"><label>Nominal</label><input type="number" id="f_pa" value="${outstanding}" max="${outstanding}"></div>
-    <div class="grid-2">
-      <div class="form-group"><label>Dari</label><input type="date" id="f_ps" value="${today}"></div>
-      <div class="form-group"><label>Sampai</label><input type="date" id="f_pe" value="${today}"></div>
-    </div>
-    <div class="form-group"><label>Catatan</label><input type="text" id="f_pn"></div>
-    <button class="btn-primary btn-block" onclick="submitPay('${opId}')">Bayar</button>
-  `);
-};
-
-window.submitPay = async function(opId) {
-  const amt = parseInt($('#f_pa').value, 10);
-  if (!amt || amt <= 0) return toast('Nominal tidak valid', 'error');
-  await submitAndReload('payCommission', {
-    operator_id: opId,
-    amount: amt,
-    period_start: $('#f_ps').value,
-    period_end:   $('#f_pe').value,
-    notes: $('#f_pn').value
-  });
-};
-
-// ----- User -----
-window.showUserForm = function(id) {
-  const list = window._userCache || [];
-  const u = id ? list.find(x => x.user_id === id) : null;
-  openModal(id ? 'Edit Operator' : 'Tambah Operator', `
-    <div class="form-group"><label>Nama</label><input type="text" id="f_un" value="${u ? esc(u.name) : ''}"></div>
-    <div class="form-group"><label>Username</label><input type="text" id="f_uu" value="${u ? esc(u.username) : ''}"></div>
-    <div class="form-group">
-      <label>Password ${u ? '(kosongkan jika tidak diubah)' : ''}</label>
-      <input type="text" id="f_up">
-    </div>
-    ${u ? `
-      <div class="form-group">
-        <label>Status</label>
-        <select id="f_us">
-          <option value="ACTIVE"   ${u.status === 'ACTIVE'   ? 'selected' : ''}>Aktif</option>
-          <option value="INACTIVE" ${u.status === 'INACTIVE' ? 'selected' : ''}>Nonaktif</option>
-        </select>
-      </div>` : ''}
-    <button class="btn-primary btn-block" onclick="submitUser('${id || ''}')">Simpan</button>
-  `);
-};
-
-window.submitUser = async function(id) {
-  await submitAndReload('saveUser', {
-    user_id: id || undefined,
-    name: $('#f_un').value,
-    username: $('#f_uu').value,
-    password: $('#f_up').value,
-    status: id ? $('#f_us').value : 'ACTIVE'
-  });
-};
-
-// ----- Settings -----
-window.saveSettingsForm = async function() {
-  const r = await api('saveSettings', {
-    settings: {
-      price_consumer_1:     $('#s_pc1').value,
-      price_consumer_2:     $('#s_pc2').value,
-      price_agent:          $('#s_pa').value,
-      commission_consumer:  $('#s_cc').value,
-      commission_agent:     $('#s_ca').value,
-      auto_deduct_gallon:   $('#s_auto').value
-    }
-  });
-  if (r.success) {
-    toast(r.message, 'success');
-    clearApiCache();
-    await refreshCache();
-  } else {
-    toast(r.message, 'error');
-  }
-};
-
-// ----- Report handlers -----
-window.switchReport = async function(t, btn) {
-  currentReport = t;
-  $$('.tabs .tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  await loadReport();
-};
-window.applyReport = loadReport;
-window.setPreset = async function(p) {
-  const r = REPORTS.presetRange(p);
-  $('#rep_from').value = r.from;
-  $('#rep_to').value   = r.to;
-  await loadReport();
-};
-
-// ============================================================
-// SIDEBAR
-// ============================================================
-function openSidebar() {
-  $('#sidebar').classList.add('open');
-  $('#overlay').classList.remove('hidden');
-}
-function closeSidebar() {
-  $('#sidebar').classList.remove('open');
-  $('#overlay').classList.add('hidden');
-}
-
-// ============================================================
-// VIEW SWITCH
-// ============================================================
-function showLogin() {
-  $('#loginView').classList.remove('hidden');
-  $('#appView').classList.add('hidden');
-  closeSidebar();
-}
-
-async function showApp() {
-  $('#loginView').classList.add('hidden');
-  $('#appView').classList.remove('hidden');
-  $('#userName').textContent = USER.name;
-  $('#userRole').textContent = USER.role;
-
-  // Render menu (instant)
-  const allowed = MENUS.filter(m => m.roles.includes(USER.role));
-  $('#navMenu').innerHTML = allowed.map(m =>
-    `<a href="#${m.id}" data-route="${m.id}"><span class="icon">${m.icon}</span>${m.label}</a>`
-  ).join('');
-  $('#bottomNav').innerHTML = allowed.filter(m => BOTTOM.includes(m.id)).map(m =>
-    `<a href="#${m.id}" data-route="${m.id}"><span class="icon">${m.icon}</span>${m.label}</a>`
-  ).join('');
-
-  if (!location.hash) location.hash = 'dashboard';
-  navigate();
-
-  // Fetch settings di background (non-blocking)
-  refreshCache().catch(() => {});
-}
-
-// ============================================================
-// INIT
-// ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  // Login form
-  $('#loginForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    const btn = $('#loginBtn');
-    btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span>Memuat...`;
-    try {
-      const r = await api('login', {
-        username: $('#loginUsername').value.trim(),
-        password: $('#loginPassword').value
+        `;
       });
-      if (r.success) {
-        saveSession(r.data.token, r.data.user);
-        toast('Selamat datang, ' + r.data.user.name, 'success');
-        await showApp();
-      } else {
-        toast(r.message, 'error');
-      }
-    } catch (ex) {
-      toast('Gagal terhubung: ' + ex.message, 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Masuk';
     }
+
+    $('#mainContent').innerHTML = html;
+  } catch (e) {}
+}
+
+function statusIcon(s) {
+  return s === 'sesuai' ? '🟢' : s === 'perlu_diperiksa' ? '🟡' : '🔴';
+}
+function statusText(s) {
+  return s === 'sesuai' ? 'Sesuai' : s === 'perlu_diperiksa' ? 'Perlu Diperiksa' : 'Beda Besar';
+}
+
+// ====================== PENJUALAN ======================
+
+let penjualanState = { type: 'konsumen', customers: [], agents: [] };
+
+async function renderPenjualan() {
+  const [customers, agents] = await Promise.all([
+    api('getCustomers').catch(() => []),
+    api('getAgents').catch(() => [])
+  ]);
+  penjualanState.customers = customers;
+  penjualanState.agents = agents;
+
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="segment">
+        <button class="active" data-type="konsumen">Konsumen</button>
+        <button data-type="agen">Agen</button>
+      </div>
+
+      <div id="penjualanForm"></div>
+    </div>
+  `;
+
+  $$('.segment button').forEach(b => {
+    b.onclick = () => {
+      penjualanState.type = b.dataset.type;
+      $$('.segment button').forEach(x => x.classList.toggle('active', x === b));
+      renderPenjualanForm();
+    };
   });
 
-  // Logout
-  $('#logoutBtn').addEventListener('click', async () => {
-    try { await api('logout'); } catch (e) {}
-    clearSession();
-    clearApiCache();
-    closeSidebar();
-    showLogin();
-    toast('Anda telah keluar');
+  renderPenjualanForm();
+}
+
+function renderPenjualanForm() {
+  const isKonsumen = penjualanState.type === 'konsumen';
+  const list = isKonsumen ? penjualanState.customers : penjualanState.agents;
+
+  let html = `
+    <div class="form-group">
+      <label class="form-label">Pelanggan</label>
+      <select id="saleCustomer">
+        <option value="">-- Pilih --</option>
+        ${list.map(c => `<option value="${c.id}" data-name="${c.name}">${c.name}</option>`).join('')}
+      </select>
+      ${isKonsumen ? '<button class="btn-secondary mt-8" onclick="openAddCustomer()">+ Tambah Konsumen Baru</button>' : ''}
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Jumlah Galon</label>
+      <input type="number" id="saleQty" min="1" placeholder="0">
+    </div>
+
+    <button class="btn-primary" onclick="submitSale()">Simpan Transaksi</button>
+  `;
+
+  $('#penjualanForm').innerHTML = html;
+}
+
+function openAddCustomer() {
+  showModal('Tambah Konsumen', `
+    <div class="form-group">
+      <label class="form-label">Nama</label>
+      <input type="text" id="newCustName" placeholder="Nama konsumen">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Alamat</label>
+      <input type="text" id="newCustAddress" placeholder="Alamat (opsional)">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Harga</label>
+      <select id="newCustPrice">
+        <option value="10000">Rp10.000</option>
+        <option value="12000">Rp12.000</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="saveNewCustomer()">Simpan</button>
+  `);
+  setTimeout(() => $('#newCustName')?.focus(), 100);
+}
+
+async function saveNewCustomer() {
+  const name = $('#newCustName').value.trim();
+  const address = $('#newCustAddress').value.trim();
+  const price = Number($('#newCustPrice').value);
+
+  if (!name) return toast('Nama wajib diisi', 'error');
+
+  try {
+    const newCust = await api('addCustomer', { name, address, price });
+    penjualanState.customers.push(newCust);
+    closeModal();
+    renderPenjualanForm();
+    setTimeout(() => {
+      const sel = $('#saleCustomer');
+      if (sel) sel.value = newCust.id;
+    }, 100);
+    toast('Konsumen berhasil ditambahkan', 'success');
+  } catch (e) {}
+}
+
+async function submitSale() {
+  const sel = $('#saleCustomer');
+  const qty = Number($('#saleQty').value);
+  const customer_id = sel.value;
+  const customer_name = sel.options[sel.selectedIndex]?.dataset.name || '';
+
+  if (!customer_id) return toast('Pilih pelanggan', 'error');
+  if (!qty || qty <= 0) return toast('Jumlah galon tidak valid', 'error');
+
+  try {
+    const res = await api('createSale', {
+      customer_type: penjualanState.type,
+      customer_id, customer_name, quantity: qty
+    });
+    toast(`Transaksi tersimpan. Total ${formatRp(res.total)}`, 'success');
+    $('#saleQty').value = '';
+    sel.value = '';
+  } catch (e) {}
+}
+
+// ====================== AGEN ======================
+
+let agenState = { tab: 'keluar', agents: [] };
+
+async function renderAgen() {
+  const [agents, tracking] = await Promise.all([
+    api('getAgents').catch(() => []),
+    api('getGallonTracking').catch(() => [])
+  ]);
+  agenState.agents = agents;
+
+  let html = `
+    <div class="segment">
+      <button class="active" data-tab="keluar">Galon Keluar</button>
+      <button data-tab="kembali">Galon Kembali</button>
+      <button data-tab="tracking">Tracking</button>
+    </div>
+    <div id="agenContent"></div>
+  `;
+
+  $('#mainContent').innerHTML = html;
+
+  $$('.segment button').forEach(b => {
+    b.onclick = () => {
+      agenState.tab = b.dataset.tab;
+      $$('.segment button').forEach(x => x.classList.toggle('active', x === b));
+      renderAgenContent(tracking);
+    };
   });
 
-  // Menu toggle
-  $('#menuBtn').addEventListener('click', openSidebar);
-  $('#overlay').addEventListener('click', closeSidebar);
+  renderAgenContent(tracking);
+}
 
-  // Modal close
-  $('#modalClose').addEventListener('click', closeModal);
-  $('#modal').addEventListener('click', e => {
-    if (e.target.id === 'modal') closeModal();
-  });
+function renderAgenContent(tracking) {
+  const tab = agenState.tab;
+  let html = '';
 
-  // Hash change
-  window.addEventListener('hashchange', () => {
-    if (USER) navigate();
-  });
+  if (tab === 'keluar') {
+    html = `
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Agen</label>
+          <select id="outAgent">
+            <option value="">-- Pilih Agen --</option>
+            ${agenState.agents.map(a => `<option value="${a.id}" data-name="${a.name}">${a.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Aqua</label><input type="number" id="outAqua" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">BM Water</label><input type="number" id="outBM" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Kran</label><input type="number" id="outKran" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Lainnya</label><input type="number" id="outLain" min="0" value="0"></div>
+        </div>
+        <button class="btn-primary" onclick="submitGallonOut()">Simpan Galon Keluar</button>
+      </div>
+    `;
+  } else if (tab === 'kembali') {
+    html = `
+      <div class="card">
+        <div class="form-group">
+          <label class="form-label">Agen</label>
+          <select id="retAgent">
+            <option value="">-- Pilih Agen --</option>
+            ${agenState.agents.map(a => `<option value="${a.id}" data-name="${a.name}">${a.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">Aqua</label><input type="number" id="retAqua" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">BM Water</label><input type="number" id="retBM" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Kran</label><input type="number" id="retKran" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Lainnya</label><input type="number" id="retLain" min="0" value="0"></div>
+          <div class="form-group"><label class="form-label">Rusak</label><input type="number" id="retRusak" min="0" value="0"></div>
+        </div>
+        <button class="btn-primary" onclick="submitGallonReturn()">Simpan Galon Kembali</button>
+      </div>
+    `;
+  } else {
+    if (!tracking || tracking.length === 0) {
+      html = '<div class="card text-center text-muted">Belum ada data tracking galon agen.</div>';
+    } else {
+      html = tracking.map(t => `
+        <div class="card">
+          <div style="font-weight:700; margin-bottom:8px;">${t.agent_name}</div>
+          <div class="table-wrap">
+            <table>
+              <tr><th>Jenis</th><th>Keluar</th><th>Kembali</th><th>Belum</th></tr>
+              <tr><td>Aqua</td><td>${t.aqua}</td><td>${t.kembali.aqua}</td><td><b>${t.belum.aqua}</b></td></tr>
+              <tr><td>BM Water</td><td>${t.bm_water}</td><td>${t.kembali.bm_water}</td><td><b>${t.belum.bm_water}</b></td></tr>
+              <tr><td>Kran</td><td>${t.kran}</td><td>${t.kembali.kran}</td><td><b>${t.belum.kran}</b></td></tr>
+              <tr><td>Lainnya</td><td>${t.lainnya}</td><td>${t.kembali.lainnya}</td><td><b>${t.belum.lainnya}</b></td></tr>
+              <tr style="background:#f8fafc;"><td><b>Total</b></td><td><b>${t.total}</b></td><td><b>${t.kembali.total}</b></td><td><b>${t.belum.total}</b></td></tr>
+            </table>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
 
-  // Auto-login
-  if (loadSession()) showApp();
-  else showLogin();
+  $('#agenContent').innerHTML = html;
+}
+
+async function submitGallonOut() {
+  const sel = $('#outAgent');
+  const agent_id = sel.value;
+  const agent_name = sel.options[sel.selectedIndex]?.dataset.name || '';
+  if (!agent_id) return toast('Pilih agen', 'error');
+
+  const payload = {
+    agent_id, agent_name,
+    aqua: Number($('#outAqua').value || 0),
+    bm_water: Number($('#outBM').value || 0),
+    kran: Number($('#outKran').value || 0),
+    lainnya: Number($('#outLain').value || 0)
+  };
+
+  try {
+    await api('createGallonOut', payload);
+    toast('Galon keluar tersimpan', 'success');
+    renderAgen();
+  } catch (e) {}
+}
+
+async function submitGallonReturn() {
+  const sel = $('#retAgent');
+  const agent_id = sel.value;
+  const agent_name = sel.options[sel.selectedIndex]?.dataset.name || '';
+  if (!agent_id) return toast('Pilih agen', 'error');
+
+  const payload = {
+    agent_id, agent_name,
+    aqua: Number($('#retAqua').value || 0),
+    bm_water: Number($('#retBM').value || 0),
+    kran: Number($('#retKran').value || 0),
+    lainnya: Number($('#retLain').value || 0),
+    rusak: Number($('#retRusak').value || 0)
+  };
+
+  try {
+    await api('createGallonReturn', payload);
+    toast('Galon kembali tersimpan', 'success');
+    renderAgen();
+  } catch (e) {}
+}
+
+// ====================== BAHAN ======================
+
+async function renderBahan() {
+  const stocks = await api('getMaterialStock').catch(() => []);
+
+  let html = `
+    <div class="card">
+      <div class="card-title">Stok Bahan Saat Ini</div>
+      ${stocks.map(s => `
+        <div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #eee;">
+          <span style="text-transform:capitalize;">${s.material}</span>
+          <span><b>${s.last_physical_stock}</b></span>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="card">
+      <div class="card-title">Catat Pembelian</div>
+      <div class="form-group">
+        <label class="form-label">Bahan</label>
+        <select id="purMaterial">
+          <option value="air">Air (liter)</option>
+          <option value="tutup">Tutup (pcs)</option>
+          <option value="label">Label (pcs)</option>
+          <option value="tisue">Tisue (roll)</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Jumlah</label><input type="number" id="purQty" min="1"></div>
+      <div class="form-group"><label class="form-label">Harga Total</label><input type="number" id="purPrice" min="0"></div>
+      <div class="form-group"><label class="form-label">Supplier</label><input type="text" id="purSupplier"></div>
+      <button class="btn-primary" onclick="submitPurchase()">Simpan Pembelian</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Rekonsiliasi Stok</div>
+      <p class="text-muted mb-12" style="font-size:13px;">Masukkan stok fisik hasil hitung manual.</p>
+      <div class="form-group">
+        <label class="form-label">Bahan</label>
+        <select id="recMaterial">
+          <option value="air">Air</option>
+          <option value="tutup">Tutup</option>
+          <option value="label">Label</option>
+          <option value="tisue">Tisue</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Stok Fisik</label><input type="number" id="recPhysical" min="0"></div>
+      <button class="btn-primary" onclick="submitReconciliation()">Simpan Rekonsiliasi</button>
+    </div>
+  `;
+
+  $('#mainContent').innerHTML = html;
+}
+
+async function submitPurchase() {
+  const payload = {
+    material: $('#purMaterial').value,
+    quantity: Number($('#purQty').value),
+    price: Number($('#purPrice').value || 0),
+    supplier: $('#purSupplier').value
+  };
+  if (!payload.quantity) return toast('Jumlah wajib diisi', 'error');
+  try {
+    await api('saveMaterialPurchase', payload);
+    toast('Pembelian tersimpan', 'success');
+    renderBahan();
+  } catch (e) {}
+}
+
+async function submitReconciliation() {
+  const payload = {
+    material: $('#recMaterial').value,
+    physical_stock: Number($('#recPhysical').value)
+  };
+  if (isNaN(payload.physical_stock)) return toast('Stok fisik wajib diisi', 'error');
+  try {
+    const res = await api('saveReconciliation', payload);
+    toast(`Rekonsiliasi tersimpan. Selisih: ${res.diff}`, res.status === 'sesuai' ? 'success' : '');
+    renderBahan();
+  } catch (e) {}
+}
+
+// ====================== REKAP GALON ======================
+
+async function renderRekap() {
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">Rekap Galon Hari Ini</div>
+      <div class="form-group"><label class="form-label">Galon Kosong Belum Diisi</label><input type="number" id="rekapKosong" min="0" value="0"></div>
+      <div class="form-group"><label class="form-label">Galon Jelek/Rusak</label><input type="number" id="rekapRusak" min="0" value="0"></div>
+      <div class="form-group"><label class="form-label">Catatan</label><textarea id="rekapCatatan" rows="3"></textarea></div>
+      <button class="btn-primary" onclick="submitRekap()">Simpan Rekap</button>
+    </div>
+  `;
+}
+
+async function submitRekap() {
+  const payload = {
+    kosong: Number($('#rekapKosong').value || 0),
+    jelek_rusak: Number($('#rekapRusak').value || 0),
+    catatan: $('#rekapCatatan').value
+  };
+  try {
+    await api('saveGallonCheck', payload);
+    toast('Rekap tersimpan', 'success');
+  } catch (e) {}
+}
+
+// ====================== MORE ======================
+
+function renderMore() {
+  const isOwner = state.user.role === 'owner';
+  const items = isOwner ? [
+    { id: 'konsumen', label: '👥 Konsumen' },
+    { id: 'komisi', label: '💵 Komisi Operator' },
+    { id: 'pengeluaran', label: '💸 Pengeluaran' },
+    { id: 'rekonsiliasi', label: '📋 Rekonsiliasi' },
+    { id: 'log', label: '📜 Log Aktivitas' },
+    { id: 'pengaturan', label: '⚙️ Pengaturan' }
+  ] : [
+    { id: 'konsumen', label: '👥 Konsumen' },
+    { id: 'komisi', label: '💵 Komisi Saya' }
+  ];
+
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      ${items.map(i => `
+        <button class="btn-secondary" onclick="navigate('${i.id}')">${i.label}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ====================== KONSUMEN ======================
+
+async function renderKonsumen() {
+  const list = await api('getCustomers').catch(() => []);
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">Daftar Konsumen</div>
+      ${list.length === 0 ? '<p class="text-muted">Belum ada konsumen.</p>' :
+        list.map(c => `
+          <div style="padding:10px 0; border-bottom:1px solid #eee;">
+            <div style="font-weight:600;">${c.name}</div>
+            <div class="text-muted" style="font-size:12px;">${c.address || '-'} · ${formatRp(c.price)}</div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+// ====================== KOMISI ======================
+
+async function renderKomisi() {
+  const data = await api('getCommission').catch(() => ({ total: 0, unpaid: 0, paid: 0, sales: [] }));
+  $('#mainContent').innerHTML = `
+    <div class="grid-2">
+      <div class="card"><div class="card-title">Total</div><div class="card-value small">${formatRp(data.total)}</div></div>
+      <div class="card"><div class="card-title">Belum Dibayar</div><div class="card-value small">${formatRp(data.unpaid)}</div></div>
+      <div class="card"><div class="card-title">Sudah Dibayar</div><div class="card-value small">${formatRp(data.paid)}</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Riwayat Komisi</div>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Tanggal</th><th>Pelanggan</th><th>Komisi</th><th>Status</th></tr>
+          ${data.sales.map(s => `
+            <tr>
+              <td>${String(s.date).substring(0,10)}</td>
+              <td>${s.customer_name}</td>
+              <td>${formatRp(s.commission)}</td>
+              <td>${s.commission_status === 'paid' ? '<span class="badge badge-success">Lunas</span>' : '<span class="badge badge-warning">Belum</span>'}</td>
+            </tr>
+          `).join('')}
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ====================== PENGELUARAN ======================
+
+async function renderPengeluaran() {
+  const list = await api('getExpenses').catch(() => []);
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">Catat Pengeluaran</div>
+      <div class="form-group"><label class="form-label">Kategori</label>
+        <select id="expCategory">
+          <option value="operasional">Operasional</option>
+          <option value="listrik">Listrik</option>
+          <option value="gaji">Gaji</option>
+          <option value="lainnya">Lainnya</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Keterangan</label><input type="text" id="expDesc"></div>
+      <div class="form-group"><label class="form-label">Jumlah</label><input type="number" id="expAmount" min="0"></div>
+      <button class="btn-primary" onclick="submitExpense()">Simpan</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Riwayat Pengeluaran</div>
+      ${list.length === 0 ? '<p class="text-muted">Belum ada pengeluaran.</p>' :
+        list.map(e => `
+          <div style="padding:8px 0; border-bottom:1px solid #eee; display:flex; justify-content:space-between;">
+            <div><div>${e.description || e.category}</div><div class="text-muted" style="font-size:12px;">${String(e.date).substring(0,10)}</div></div>
+            <div>${formatRp(e.amount)}</div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+async function submitExpense() {
+  const payload = {
+    category: $('#expCategory').value,
+    description: $('#expDesc').value,
+    amount: Number($('#expAmount').value)
+  };
+  if (!payload.amount) return toast('Jumlah wajib diisi', 'error');
+  try {
+    await api('saveExpense', payload);
+    toast('Pengeluaran tersimpan', 'success');
+    renderPengeluaran();
+  } catch (e) {}
+}
+
+// ====================== REKONSILIASI ======================
+
+async function renderRekonsiliasi() {
+  const list = await api('getReconciliation').catch(() => []);
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">Riwayat Rekonsiliasi</div>
+      ${list.length === 0 ? '<p class="text-muted">Belum ada rekonsiliasi.</p>' :
+        list.reverse().map(r => `
+          <div style="padding:10px 0; border-bottom:1px solid #eee;">
+            <div style="display:flex; justify-content:space-between;">
+              <b style="text-transform:capitalize;">${r.material}</b>
+              <span class="badge badge-${r.status === 'sesuai' ? 'success' : r.status === 'perlu_diperiksa' ? 'warning' : 'danger'}">${r.status}</span>
+            </div>
+            <div class="text-muted" style="font-size:12px; margin-top:4px;">
+              ${String(r.date).substring(0,10)} · Fisik: ${r.physical_stock} · Selisih: ${r.difference}
+            </div>
+          </div>
+        `).join('')}
+    </div>
+  `;
+}
+
+// ====================== LOG ======================
+
+async function renderLog() {
+  const list = await api('getLog', { limit: 100 }).catch(() => []);
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      <div class="card-title">Log Aktivitas (100 terakhir)</div>
+      ${list.map(l => `
+        <div style="padding:8px 0; border-bottom:1px solid #eee; font-size:13px;">
+          <div><b>${l.action}</b> · ${l.user_name}</div>
+          <div class="text-muted" style="font-size:11px;">${l.timestamp}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ====================== PENGATURAN ======================
+
+async function renderPengaturan() {
+  const s = await api('getSettings').catch(() => ({}));
+  const fields = [
+    ['consumer_price_1', 'Harga Konsumen 1'],
+    ['consumer_price_2', 'Harga Konsumen 2'],
+    ['agent_price', 'Harga Agen'],
+    ['consumer_commission', 'Komisi Konsumen'],
+    ['agent_commission', 'Komisi Agen'],
+    ['liter_per_gallon', 'Liter per Galon'],
+    ['cap_per_gallon', 'Tutup per Galon'],
+    ['label_per_gallon', 'Label per Galon (BM Water)'],
+    ['tolerance_water', 'Toleransi Air'],
+    ['tolerance_cap', 'Toleransi Tutup'],
+    ['tolerance_label', 'Toleransi Label']
+  ];
+
+  $('#mainContent').innerHTML = `
+    <div class="card">
+      ${fields.map(([k, label]) => `
+        <div class="form-group">
+          <label class="form-label">${label}</label>
+          <input type="text" id="set_${k}" value="${s[k] || ''}">
+        </div>
+      `).join('')}
+      <button class="btn-primary" onclick="submitSettings()">Simpan Pengaturan</button>
+    </div>
+  `;
+}
+
+async function submitSettings() {
+  const payload = {};
+  ['consumer_price_1','consumer_price_2','agent_price','consumer_commission','agent_commission',
+   'liter_per_gallon','cap_per_gallon','label_per_gallon','tolerance_water','tolerance_cap','tolerance_label']
+   .forEach(k => {
+     const el = $('#set_' + k);
+     if (el && el.value !== '') payload[k] = el.value;
+   });
+  try {
+    await api('saveSettings', payload);
+    toast('Pengaturan tersimpan', 'success');
+  } catch (e) {}
+}
+
+// ====================== INIT ======================
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('#btnLogin').onclick = doLogin;
+  $('#loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  $('#btnLogout').onclick = doLogout;
+  $('#modalClose').onclick = closeModal;
+  $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeModal(); });
+
+  // Auto login
+  const savedToken = localStorage.getItem('bm_token');
+  const savedUser = localStorage.getItem('bm_user');
+  if (savedToken && savedUser) {
+    state.token = savedToken;
+    state.user = JSON.parse(savedUser);
+    enterApp();
+  }
 });
