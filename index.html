@@ -20,6 +20,36 @@
         </div>
     </div>
 
+    <!-- MODAL PELUNASAN PIUTANG & CEK KONDISI GALON RINCI -->
+    <div id="modalPelunasan" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-6 rounded-3xl shadow-2xl max-w-2xl w-full space-y-4">
+            <h3 class="text-sm font-bold uppercase tracking-wider text-slate-700">Verifikasi Pelunasan & Kondisi Pengembalian Galon</h3>
+            <div id="infoDetailPiutang" class="bg-slate-50 p-3 rounded-xl text-xs text-slate-600 space-y-1"></div>
+            
+            <div class="space-y-2">
+                <label class="block text-xs font-bold text-slate-700">Pengecekan Fisik Galon Saat Dikembalikan:</label>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs border">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 uppercase">
+                                <th class="p-2 border">Jenis Galon</th>
+                                <th class="p-2 border">Jumlah</th>
+                                <th class="p-2 border">Kondisi Awal</th>
+                                <th class="p-2 border">Kondisi Pengembalian</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelCekKondisiRetur" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex space-x-2 pt-2">
+                <button onclick="prosesLunasPiutangFinal()" class="flex-grow bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 rounded-xl text-xs font-semibold transition">Konfirmasi Lunas & Simpan</button>
+                <button onclick="document.getElementById('modalPelunasan').classList.add('hidden')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2.5 rounded-xl text-xs font-semibold">Batal</button>
+            </div>
+        </div>
+    </div>
+
     <!-- LOGIN SECTION -->
     <div id="loginSection" class="min-h-screen flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-100 w-full max-w-sm">
@@ -31,13 +61,13 @@
             <form id="loginForm" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Username</label>
-                    <input type="text" id="username" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-500">
+                    <input type="text" id="username" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:border-sky-500">
                 </div>
                 <div>
                     <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">Password</label>
-                    <input type="password" id="password" required class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-sky-500">
+                    <input type="password" id="password" required class="w-full px-4 py-3 bg-slate-50 border rounded-xl text-sm focus:outline-none focus:border-sky-500">
                 </div>
-                <button type="submit" id="loginBtn" class="w-full mt-2 bg-sky-600 hover:bg-sky-700 text-white font-medium p-3 rounded-xl text-sm transition shadow-sm">Masuk Aplikasi</button>
+                <button type="submit" id="loginBtn" class="w-full mt-2 bg-sky-600 hover:bg-sky-700 text-white font-medium p-3 rounded-xl text-sm transition">Masuk Aplikasi</button>
             </form>
         </div>
     </div>
@@ -59,25 +89,35 @@
 
         <main class="max-w-4xl mx-auto w-full p-4 flex-grow space-y-6">
             
-            <!-- TABS -->
+            <!-- TABS MENU -->
             <div class="flex space-x-2 border-b border-slate-200 pb-2 overflow-x-auto">
                 <button onclick="switchTab('transaksi')" id="tabTransaksi" class="px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 text-white transition">Form Transaksi</button>
-                <button onclick="switchTab('riwayat')" id="tabRiwayat" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Riwayat & Keuangan</button>
-                <button onclick="switchTab('komisi')" id="tabKomisi" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Komisi Operator</button>
-                <button onclick="switchTab('kelola')" id="tabKelola" class="hidden px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Kelola Data</button>
+                <button onclick="switchTab('piutang')" id="tabPiutang" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Piutang Agen</button>
+                <button onclick="switchTab('riwayat')" id="tabRiwayat" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Riwayat Penjualan</button>
+                <button onclick="switchTab('keuangan')" id="tabKeuangan" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Keuangan</button>
+                <button onclick="switchTab('komisi')" id="tabKomisi" class="px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Komisi</button>
+                <button onclick="switchTab('kelola')" id="tabKelola" class="hidden px-4 py-2 text-xs font-semibold rounded-xl text-slate-600 hover:bg-slate-200 transition">Kelola</button>
             </div>
 
-            <!-- PANEL 1: TRANSAKSI & KEUANGAN MANUAL -->
+            <!-- DASHBOARD WIDGET: KONTROL STOK REAL-TIME -->
+            <div id="ownerStokAlertBox" class="hidden bg-amber-50 border border-amber-200 p-5 rounded-3xl space-y-2 shadow-sm">
+                <div class="flex items-center space-x-2 text-amber-900 font-bold text-xs">
+                    <span>⚠️ Kontrol Stok & Estimasi Real-Time (Owner)</span>
+                </div>
+                <p class="text-xs text-amber-800 leading-relaxed" id="stokAlertText">Menghitung data pengisian dan penjualan real-time...</p>
+            </div>
+
+            <!-- PANEL 1: TRANSAKSI -->
             <div id="panelTransaksi" class="space-y-6">
-                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-5">Input Transaksi Galon</h2>
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-5">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Input Transaksi Galon</h2>
                     <form id="transactionForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Tipe Pembeli</label>
                                 <select id="tipePembeli" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" onchange="toggleTipePembeli()" required>
                                     <option value="Umum">Konsumen Umum</option>
-                                    <option value="Agen">Agen Terdaftar</option>
+                                    <option value="Agen">Agen Terdaftar (Pesan / Piutang)</option>
                                 </select>
                             </div>
                             <div id="containerAgen" class="hidden">
@@ -88,44 +128,156 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 mb-1">Jenis Galon</label>
-                                <select id="jenisGalon" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" onchange="updateHargaOtomatis()" required></select>
+                        <!-- KERANJANG PRODUK -->
+                        <div class="bg-sky-50/50 p-4 rounded-2xl border border-sky-100 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-sky-900">Daftar Produk Galon Dibeli</label>
+                                <button type="button" onclick="tambahBarisProduk()" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-sky-700">+ Tambah Produk</button>
                             </div>
-                            <div>
-                                <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Galon)</label>
-                                <input type="number" id="jumlah" min="1" value="1" required class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" oninput="hitungTotal()">
+                            <div id="listProdukContainer" class="space-y-2"></div>
+                        </div>
+
+                        <!-- GALON RUSAK AGEN -->
+                        <div id="containerGalonRusak" class="hidden bg-rose-50/60 p-4 rounded-2xl border border-rose-200 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-bold text-rose-800">Catatan Galon Rusak / Cacat saat Pemesanan?</label>
+                                <button type="button" onclick="tambahBarisGalonRusak()" class="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-rose-700">+ Tambah Galon Rusak</button>
                             </div>
+                            <div id="listGalonRusakContainer" class="space-y-2"></div>
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Total Harga (Otomatis)</label>
-                                <input type="text" id="totalDisplay" readonly class="w-full px-3 py-2.5 bg-slate-100 border rounded-xl text-sm font-bold text-sky-600">
-                                <input type="hidden" id="total">
+                                <input type="text" id="totalDisplay" readonly class="w-full px-3 py-2.5 bg-slate-100 border rounded-xl text-sm font-bold text-sky-600" value="Rp 0">
+                                <input type="hidden" id="total" value="0">
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Status Pembayaran</label>
                                 <select id="status" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" onchange="togglePenghutangField()">
                                     <option value="Lunas">Lunas</option>
-                                    <option value="Bon / Utang">Bon / Utang</option>
+                                    <option value="Bon / Utang">Bon / Utang (Piutang Agen)</option>
                                 </select>
                             </div>
                         </div>
 
                         <div id="penghutangContainer" class="hidden bg-amber-50 p-4 rounded-2xl border border-amber-200">
-                            <label class="block text-xs font-semibold text-amber-800 mb-1">Catatan Nama yang Berhutang</label>
-                            <input type="text" id="penghutang" class="w-full px-3 py-2 bg-white border rounded-xl text-sm" placeholder="Nama penghutang...">
+                            <label class="block text-xs font-semibold text-amber-800 mb-1">Catatan Nama / Keterangan Piutang</label>
+                            <input type="text" id="penghutang" class="w-full px-3 py-2 bg-white border rounded-xl text-sm" placeholder="Nama penghutang / Catatan agen...">
                         </div>
 
                         <button type="submit" id="submitBtn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-medium p-3 rounded-xl text-sm transition mt-2">Simpan Transaksi</button>
                     </form>
                 </div>
+            </div>
 
-                <!-- Form Keuangan (Kategori Otomatis) -->
+            <!-- PANEL 2: PIUTANG AGEN -->
+            <div id="panelPiutang" class="hidden space-y-6">
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                        <div>
+                            <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Daftar Piutang Agen (Belum Lunas)</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Klik 'Lunasi' untuk verifikasi jenis & jumlah galon saat pengembalian.</p>
+                        </div>
+                        <input type="text" id="searchPiutang" oninput="currentPagePiutang=1; loadPiutangAgen()" placeholder="Cari nama agen..." class="px-3 py-2 bg-slate-50 border rounded-xl text-xs w-full md:w-64">
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 uppercase">
+                                    <th class="p-3 rounded-l-xl">Tanggal</th>
+                                    <th class="p-3">Nama Agen</th>
+                                    <th class="p-3">Detail Galon</th>
+                                    <th class="p-3">Tagihan</th>
+                                    <th class="p-3">Info Awal Rusak</th>
+                                    <th class="p-3 rounded-r-xl">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="piutangTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Piutang -->
+                    <div class="flex justify-between items-center pt-2 text-xs">
+                        <span id="pageInfoPiutang" class="text-slate-500">Halaman 1</span>
+                        <div class="space-x-1">
+                            <button onclick="changePagePiutang(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold">Sebelumnya</button>
+                            <button onclick="changePagePiutang(1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold">Selanjutnya</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 3: RIWAYAT PENJUALAN -->
+            <div id="panelRiwayat" class="hidden space-y-6">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center space-x-2 text-xs font-semibold text-slate-600">
+                        <span>Filter Tanggal:</span>
+                        <input type="date" id="filterTglMulai" class="px-2.5 py-1.5 bg-slate-50 border rounded-lg text-xs" onchange="currentPageRiwayat=1; loadTransaksi(); loadGalonRusak();">
+                        <span>s/d</span>
+                        <input type="date" id="filterTglSelesai" class="px-2.5 py-1.5 bg-slate-50 border rounded-lg text-xs" onchange="currentPageRiwayat=1; loadTransaksi(); loadGalonRusak();">
+                    </div>
+                    <button onclick="resetFilterRiwayat()" class="text-xs text-sky-600 hover:underline font-semibold">Reset Filter</button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Total Penjualan Lunas</p>
+                        <h3 class="text-xl font-bold text-slate-900 mt-1" id="sumPenjualan">Rp 0</h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Total Galon Terjual</p>
+                        <h3 class="text-xl font-bold text-sky-600 mt-1" id="sumGalonTerjual">0 Galon</h3>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Riwayat Penjualan Galon</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 uppercase">
+                                    <th class="p-3 rounded-l-xl">Waktu / Operator</th>
+                                    <th class="p-3">Pembeli</th>
+                                    <th class="p-3">Detail Produk</th>
+                                    <th class="p-3">Total & Status</th>
+                                    <th class="p-3 rounded-r-xl">Info Rusak</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dataTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination Riwayat -->
+                    <div class="flex justify-between items-center pt-2 text-xs">
+                        <span id="pageInfoRiwayat" class="text-slate-500">Halaman 1</span>
+                        <div class="space-x-1">
+                            <button onclick="changePageRiwayat(-1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold">Sebelumnya</button>
+                            <button onclick="changePageRiwayat(1)" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg font-semibold">Selanjutnya</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Catatan Galon Cacat / Rusak</h2>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 uppercase">
+                                    <th class="p-3 rounded-l-xl">Waktu</th>
+                                    <th class="p-3">Nama Agen</th>
+                                    <th class="p-3">Detail Kerusakan</th>
+                                    <th class="p-3 rounded-r-xl">Pencatat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="galonRusakTable" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PANEL 4: KEUANGAN -->
+            <div id="panelKeuangan" class="hidden space-y-6">
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Pencatatan Keuangan Manual</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Form Pencatatan Keuangan Manual</h2>
                     <form id="keuanganForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div id="jenisKasContainer">
@@ -137,7 +289,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Kategori Keperluan</label>
-                                <select id="kasKategori" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" required>
+                                <select id="kasKategori" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" onchange="toggleSatuanPengeluaran()" required>
                                     <option value="">Pilih Kategori...</option>
                                     <option value="Transport">Transport</option>
                                     <option value="Tutup Botol">Tutup Botol</option>
@@ -151,9 +303,22 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah (Rp)</label>
-                                <input type="number" id="kasJumlah" required min="1" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="50000">
+                                <input type="text" id="kasJumlahFormatted" required class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="Contoh: 50.000" oninput="formatRupiahInput(this, 'kasJumlah')">
+                                <input type="hidden" id="kasJumlah">
                             </div>
                         </div>
+
+                        <div id="containerSatuan" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4 bg-sky-50/50 p-4 rounded-2xl border border-sky-100">
+                            <div>
+                                <label id="labelSatuanJumlah" class="block text-xs font-semibold text-sky-800 mb-1">Jumlah Satuan</label>
+                                <input type="number" id="satuanJumlah" min="1" class="w-full px-3 py-2 bg-white border rounded-xl text-sm" placeholder="Masukkan jumlah...">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-sky-800 mb-1">Satuan Unit</label>
+                                <input type="text" id="satuanUnit" readonly class="w-full px-3 py-2 bg-slate-100 border rounded-xl text-sm font-semibold text-sky-700">
+                            </div>
+                        </div>
+
                         <div>
                             <label class="block text-xs font-semibold text-slate-600 mb-1">Keterangan Tambahan</label>
                             <input type="text" id="kasKeterangan" class="w-full px-3 py-2.5 bg-slate-50 border rounded-xl text-sm" placeholder="Keterangan opsional...">
@@ -161,55 +326,20 @@
                         <button type="submit" id="submitKasBtn" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-medium p-2.5 rounded-xl text-sm transition">Simpan Keuangan</button>
                     </form>
                 </div>
-            </div>
 
-            <!-- PANEL 2: RIWAYAT & KEUANGAN -->
-            <div id="panelRiwayat" class="hidden space-y-6">
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-3">
-                    <div class="flex items-center space-x-2 text-xs font-semibold text-slate-600">
-                        <span>Filter Tanggal:</span>
-                        <input type="date" id="filterTglMulai" class="px-2.5 py-1.5 bg-slate-50 border rounded-lg text-xs" onchange="loadTransaksi(); loadKeuangan();">
-                        <span>s/d</span>
-                        <input type="date" id="filterTglSelesai" class="px-2.5 py-1.5 bg-slate-50 border rounded-lg text-xs" onchange="loadTransaksi(); loadKeuangan();">
-                    </div>
-                    <button onclick="resetFilterRiwayat()" class="text-xs text-sky-600 hover:underline font-semibold">Reset Filter</button>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-400 uppercase">Penjualan Lunas</p>
-                        <h3 class="text-xl font-bold text-slate-900 mt-1" id="sumPenjualan">Rp 0</h3>
-                    </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
                         <p class="text-xs font-semibold text-slate-400 uppercase">Pemasukan Lain</p>
                         <h3 class="text-xl font-bold text-emerald-600 mt-1" id="sumPemasukanLain">Rp 0</h3>
                     </div>
                     <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-400 uppercase">Pengeluaran</p>
+                        <p class="text-xs font-semibold text-slate-400 uppercase">Total Pengeluaran</p>
                         <h3 class="text-xl font-bold text-rose-600 mt-1" id="sumPengeluaran">Rp 0</h3>
                     </div>
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Riwayat Penjualan Galon</h2>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left text-xs">
-                            <thead>
-                                <tr class="bg-slate-100 text-slate-600 uppercase">
-                                    <th class="p-3 rounded-l-xl">Waktu / Operator</th>
-                                    <th class="p-3">Pembeli</th>
-                                    <th class="p-3">Detail</th>
-                                    <th class="p-3">Total & Status</th>
-                                    <th class="p-3 rounded-r-xl">Komisi</th>
-                                </tr>
-                            </thead>
-                            <tbody id="dataTable" class="divide-y divide-slate-100"></tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Arus Kas Masuk & Keluar</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Riwayat Arus Kas Masuk & Keluar</h2>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-xs">
                             <thead>
@@ -227,7 +357,7 @@
                 </div>
             </div>
 
-            <!-- PANEL 3: KOMISI OPERATOR -->
+            <!-- PANEL 5: KOMISI -->
             <div id="panelKomisi" class="hidden bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
@@ -238,7 +368,6 @@
                     </div>
                 </div>
 
-                <!-- Filter Tanggal Khusus Komisi -->
                 <div class="bg-slate-50 p-3 rounded-xl border flex items-center space-x-2 text-xs font-semibold text-slate-600">
                     <span>Filter Komisi:</span>
                     <input type="date" id="filterKomisiMulai" class="px-2.5 py-1 bg-white border rounded-lg text-xs" onchange="loadTransaksi()">
@@ -247,7 +376,6 @@
                     <button onclick="document.getElementById('filterKomisiMulai').value=''; document.getElementById('filterKomisiSelesai').value=''; loadTransaksi();" class="text-sky-600 hover:underline">Reset</button>
                 </div>
 
-                <!-- Form Bayar Massal (Owner) dengan Otomatis Hitung Nominal -->
                 <div id="ownerBayarBox" class="hidden bg-sky-50 p-5 rounded-2xl border border-sky-100 space-y-4">
                     <h3 class="text-xs font-bold uppercase tracking-wider text-sky-800">Pembayaran Komisi Massal</h3>
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -268,7 +396,7 @@
                                 <th class="p-3 rounded-l-xl">Tanggal</th>
                                 <th class="p-3">Operator</th>
                                 <th class="p-3">Pembeli</th>
-                                <th class="p-3">Jumlah</th>
+                                <th class="p-3">Jumlah (Gln)</th>
                                 <th class="p-3">Komisi</th>
                                 <th class="p-3 rounded-r-xl">Status</th>
                             </tr>
@@ -278,7 +406,7 @@
                 </div>
             </div>
 
-            <!-- PANEL 4: KELOLA DATA (OWNER ONLY) -->
+            <!-- PANEL 6: KELOLA DATA (OWNER ONLY) -->
             <div id="panelKelola" class="hidden space-y-6">
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
                     <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Manajemen Agen</h2>
@@ -290,7 +418,7 @@
                 </div>
 
                 <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Master Harga Galon</h2>
+                    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400">Master Harga Galon (Konsumen & Agen)</h2>
                     <div id="hargaListContainer" class="space-y-3"></div>
                 </div>
 
@@ -315,8 +443,12 @@
 
     <script>
         const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7Oo5_udErUob7gZN9Scfy9806AHRB-QZBicVskGDDkBhchWQyEso8DUM8LoEoPgpy/exec";
-        let masterHargaList = [], agenList = [], globalTransaksiData = [];
+        let masterHargaList = [], agenList = [], globalTransaksiData = [], globalKeuanganData = [];
         let loggedInUser = null, loggedInRole = null;
+        let activeTargetPiutang = null;
+
+        let currentPageRiwayat = 1, pageSizeRiwayat = 10;
+        let currentPagePiutang = 1, pageSizePiutang = 10;
 
         function showPopup(title, msg, isSuccess = true) {
             document.getElementById("popupIcon").innerText = isSuccess ? "✅" : "❌";
@@ -325,6 +457,22 @@
             document.getElementById("popupModal").classList.remove("hidden");
         }
         function closePopup() { document.getElementById("popupModal").classList.add("hidden"); }
+
+        function formatRupiahInput(inputElement, targetHiddenId) {
+            let val = inputElement.value.replace(/[^,\d]/g, '').toString();
+            let split = val.split(',');
+            let sisa = split[0].length % 3;
+            let rupiah = split[0].substr(0, sisa);
+            let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+
+            if (ribuan) {
+                let separator = sisa ? '.' : '';
+                rupiah += separator + ribuan.join('.');
+            }
+            rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
+            inputElement.value = rupiah;
+            document.getElementById(targetHiddenId).value = val.replace(/\./g, '');
+        }
 
         window.addEventListener("DOMContentLoaded", () => {
             let u = localStorage.getItem("depot_user"), r = localStorage.getItem("depot_role");
@@ -360,17 +508,23 @@
             if(loggedInRole === "owner") {
                 document.getElementById("tabKelola").classList.remove("hidden");
                 document.getElementById("ownerBayarBox").classList.remove("hidden");
+                document.getElementById("ownerStokAlertBox").classList.remove("hidden");
             } else {
                 document.getElementById("optPemasukan").remove();
             }
 
-            loadMasterHarga(); loadAgen(); loadTransaksi(); loadKeuangan(); loadUsers();
+            refreshAllData();
+            setInterval(refreshAllData, 5000); // Polling real-time 5 detik
+        }
+
+        function refreshAllData() {
+            Promise.all([loadMasterHarga(), loadAgen(), loadTransaksi(), loadKeuangan(), loadGalonRusak(), loadUsers(), loadPiutangAgen()]);
         }
 
         function logout() { localStorage.clear(); location.reload(); }
 
         function switchTab(tab) {
-            ['transaksi', 'riwayat', 'komisi', 'kelola'].forEach(t => {
+            ['transaksi', 'piutang', 'riwayat', 'keuangan', 'komisi', 'kelola'].forEach(t => {
                 let el = document.getElementById("panel" + t.charAt(0).toUpperCase() + t.slice(1));
                 let btn = document.getElementById("tab" + t.charAt(0).toUpperCase() + t.slice(1));
                 if(el) el.classList.add("hidden");
@@ -378,58 +532,156 @@
             });
             document.getElementById("panel" + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.remove("hidden");
             document.getElementById("tab" + tab.charAt(0).toUpperCase() + tab.slice(1)).className = "px-4 py-2 text-xs font-semibold rounded-xl bg-sky-600 text-white transition";
+
+            let widget = document.getElementById("ownerStokAlertBox");
+            if(widget && loggedInRole === 'owner') {
+                if(tab === 'transaksi') widget.classList.remove("hidden");
+                else widget.classList.add("hidden");
+            }
         }
 
         function toggleTipePembeli() {
             let tipe = document.getElementById("tipePembeli").value;
             let containerAgen = document.getElementById("containerAgen");
-            if(tipe === "Agen") { containerAgen.classList.remove("hidden"); document.getElementById("namaAgen").required = true; }
-            else { containerAgen.classList.add("hidden"); document.getElementById("namaAgen").required = false; }
+            let containerRusak = document.getElementById("containerGalonRusak");
+            if(tipe === "Agen") {
+                containerAgen.classList.remove("hidden"); containerRusak.classList.remove("hidden");
+                document.getElementById("namaAgen").required = true;
+            } else {
+                containerAgen.classList.add("hidden"); containerRusak.classList.add("hidden");
+                document.getElementById("namaAgen").required = false;
+                document.getElementById("listGalonRusakContainer").innerHTML = "";
+            }
+            updateDropdownProdukSemuaBaris();
         }
 
-        function loadMasterHarga() {
-            fetch(SCRIPT_URL + "?action=get_harga").then(res => res.json()).then(data => {
-                masterHargaList = data;
-                let select = document.getElementById("jenisGalon");
-                select.innerHTML = '<option value="">Pilih...</option>';
-                data.forEach(i => select.innerHTML += `<option value="${i.jenis}">${i.jenis} (Rp ${Number(i.harga).toLocaleString()})</option>`);
-                
-                let container = document.getElementById("hargaListContainer");
-                if(container && loggedInRole === 'owner') {
-                    container.innerHTML = "";
-                    data.forEach(i => {
-                        container.innerHTML += `
-                            <div class="flex items-center justify-between p-3 bg-slate-50 border rounded-xl text-xs">
-                                <span class="font-medium">${i.jenis}</span>
-                                <div class="flex items-center space-x-2">
-                                    <input type="number" id="price_${i.jenis}" value="${i.harga}" class="px-3 py-1.5 bg-white border rounded-lg w-28 text-right font-bold">
-                                    <button onclick="updateHarga('${i.jenis}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg">Simpan</button>
-                                </div>
-                            </div>`;
-                    });
-                }
+        function updateDropdownProdukSemuaBaris() {
+            let rows = document.querySelectorAll("#listProdukContainer > div");
+            rows.forEach(row => {
+                let select = row.querySelector(".produk-jenis");
+                let currentVal = select.value;
+                isiDropdownProduk(select, currentVal);
             });
         }
 
-        function updateHarga(jenis) {
-            let h = document.getElementById("price_" + jenis).value;
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "update_harga", jenis: jenis, harga: h }) })
+        function isiDropdownProduk(selectElement, selectedValue = "") {
+            let tipePembeli = document.getElementById("tipePembeli").value;
+            let targetJenisPelanggan = (tipePembeli === "Agen") ? "Agen" : "Konsumen";
+            
+            selectElement.innerHTML = '<option value="">Pilih Jenis Galon...</option>';
+            masterHargaList.forEach(item => {
+                if(item.jenisPelanggan === targetJenisPelanggan) {
+                    let sel = (item.jenis === selectedValue) ? "selected" : "";
+                    selectElement.innerHTML += `<option value="${item.jenis}" data-harga="${item.harga}" ${sel}>${item.jenis} (Rp ${Number(item.harga).toLocaleString()})</option>`;
+                }
+            });
+            hitungTotalMultiProduk();
+        }
+
+        function tambahBarisProduk(jenisDefault = "", jumlahDefault = 1) {
+            let container = document.getElementById("listProdukContainer");
+            let div = document.createElement("div");
+            div.className = "flex items-center space-x-2 bg-white p-3 rounded-xl border border-sky-100";
+            
+            div.innerHTML = `
+                <select class="flex-grow px-3 py-2 bg-slate-50 border rounded-lg text-xs produk-jenis" onchange="hitungTotalMultiProduk()" required></select>
+                <input type="number" min="1" value="${jumlahDefault}" class="w-20 px-3 py-2 bg-slate-50 border rounded-lg text-xs produk-jumlah text-center font-bold" oninput="hitungTotalMultiProduk()" required>
+                <button type="button" onclick="this.parentElement.remove(); hitungTotalMultiProduk();" class="text-rose-500 hover:text-rose-700 font-bold px-2">&times;</button>
+            `;
+            container.appendChild(div);
+            let select = div.querySelector(".produk-jenis");
+            isiDropdownProduk(select, jenisDefault);
+        }
+
+        function tambahBarisGalonRusak() {
+            let container = document.getElementById("listGalonRusakContainer");
+            let div = document.createElement("div");
+            div.className = "grid grid-cols-1 md:grid-cols-3 gap-2 bg-white p-3 rounded-xl border border-rose-100";
+            div.innerHTML = `
+                <input type="text" class="px-3 py-2 bg-slate-50 border rounded-lg text-xs rusak-jenis" placeholder="Jenis Galon" required>
+                <input type="text" class="px-3 py-2 bg-slate-50 border rounded-lg text-xs rusak-kondisi" placeholder="Kondisi (Pecah/Bocor)" required>
+                <div class="flex space-x-2">
+                    <input type="number" min="1" value="1" class="flex-grow px-3 py-2 bg-slate-50 border rounded-lg text-xs rusak-jumlah text-center font-bold" required>
+                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-rose-500 font-bold px-2">&times;</button>
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+        function hitungTotalMultiProduk() {
+            let total = 0;
+            let rows = document.querySelectorAll("#listProdukContainer > div");
+            rows.forEach(row => {
+                let select = row.querySelector(".produk-jenis");
+                let jumlahInput = row.querySelector(".produk-jumlah");
+                let opt = select.options[select.selectedIndex];
+                if(opt && opt.dataset.harga) {
+                    total += Number(opt.dataset.harga) * (Number(jumlahInput.value) || 0);
+                }
+            });
+            document.getElementById("total").value = total;
+            document.getElementById("totalDisplay").value = "Rp " + total.toLocaleString();
+        }
+
+        function toggleSatuanPengeluaran() {
+            let kat = document.getElementById("kasKategori").value;
+            let cont = document.getElementById("containerSatuan");
+            let lbl = document.getElementById("labelSatuanJumlah");
+            let unit = document.getElementById("satuanUnit");
+
+            if(["Air", "Tutup Botol", "Tisue", "Label Plastik"].includes(kat)) {
+                cont.classList.remove("hidden");
+                document.getElementById("satuanJumlah").required = true;
+                if(kat === "Air") { lbl.innerText = "Jumlah Liter Air"; unit.value = "Liter"; }
+                else if(kat === "Tutup Botol") { lbl.innerText = "Jumlah Tutup Botol"; unit.value = "Pcs"; }
+                else if(kat === "Tisue") { lbl.innerText = "Jumlah Tisue"; unit.value = "Pack"; }
+                else if(kat === "Label Plastik") { lbl.innerText = "Jumlah Label"; unit.value = "Lembar/Pcs"; }
+            } else {
+                cont.classList.add("hidden");
+                document.getElementById("satuanJumlah").required = false;
+            }
+        }
+
+        async function loadMasterHarga() {
+            let res = await fetch(SCRIPT_URL + "?action=get_harga");
+            masterHargaList = await res.json();
+            let container = document.getElementById("listProdukContainer");
+            if(container && container.children.length === 0) tambahBarisProduk();
+
+            let hargaContainer = document.getElementById("hargaListContainer");
+            if(hargaContainer && loggedInRole === 'owner') {
+                hargaContainer.innerHTML = "";
+                masterHargaList.forEach(i => {
+                    hargaContainer.innerHTML += `
+                        <div class="flex items-center justify-between p-3 bg-slate-50 border rounded-xl text-xs">
+                            <span class="font-medium">${i.jenis} <span class="text-sky-600 font-bold">(${i.jenisPelanggan})</span></span>
+                            <div class="flex items-center space-x-2">
+                                <input type="number" id="price_${i.jenis}_${i.jenisPelanggan}" value="${i.harga}" class="px-3 py-1.5 bg-white border rounded-lg w-28 text-right font-bold">
+                                <button onclick="updateHarga('${i.jenis}', '${i.jenisPelanggan}')" class="bg-emerald-600 text-white px-3 py-1.5 rounded-lg">Simpan</button>
+                            </div>
+                        </div>`;
+                });
+            }
+        }
+
+        function updateHarga(jenis, jenisPelanggan) {
+            let h = document.getElementById(`price_${jenis}_${jenisPelanggan}`).value;
+            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "update_harga", jenis: jenis, harga: h, jenisPelanggan: jenisPelanggan }) })
             .then(() => { showPopup("Sukses", "Harga berhasil diperbarui!"); loadMasterHarga(); });
         }
 
-        function loadAgen() {
-            fetch(SCRIPT_URL + "?action=get_agen").then(res => res.json()).then(data => {
-                agenList = data;
-                let select = document.getElementById("namaAgen");
-                select.innerHTML = '<option value="">Pilih agen...</option>';
-                data.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
+        async function loadAgen() {
+            let res = await fetch(SCRIPT_URL + "?action=get_agen");
+            agenList = await res.json();
+            let select = document.getElementById("namaAgen");
+            select.innerHTML = '<option value="">Pilih agen...</option>';
+            agenList.forEach(n => select.innerHTML += `<option value="${n}">${n}</option>`);
 
-                let container = document.getElementById("agenListContainer");
-                if(container && loggedInRole === 'owner') {
-                    container.innerHTML = "";
-                    data.forEach(n => container.innerHTML += `<div class="inline-flex items-center bg-slate-100 px-3 py-1.5 rounded-xl text-xs space-x-2"><span class="font-medium">${n}</span><button onclick="hapusAgen('${n}')" class="text-rose-500 font-bold">&times;</button></div>`);
-                }
-            });
+            let container = document.getElementById("agenListContainer");
+            if(container && loggedInRole === 'owner') {
+                container.innerHTML = "";
+                agenList.forEach(n => container.innerHTML += `<div class="inline-flex items-center bg-slate-100 px-3 py-1.5 rounded-xl text-xs space-x-2"><span class="font-medium">${n}</span><button onclick="hapusAgen('${n}')" class="text-rose-500 font-bold">&times;</button></div>`);
+            }
         }
 
         document.getElementById("addAgenForm").addEventListener("submit", e => {
@@ -445,16 +697,16 @@
             }
         }
 
-        function loadUsers() {
-            fetch(SCRIPT_URL + "?action=get_users").then(res => res.json()).then(data => {
-                let tbody = document.getElementById("userTableBody"), selectBayar = document.getElementById("bayarOperator");
-                if(tbody) tbody.innerHTML = ""; if(selectBayar) selectBayar.innerHTML = "";
-                data.forEach(u => {
-                    if(tbody && u.role === 'operator') tbody.innerHTML += `<tr><td class="p-3 font-semibold">${u.username}</td><td class="p-3 uppercase text-sky-600">${u.role}</td><td class="p-3"><button onclick="hapusUser('${u.username}')" class="text-rose-600 hover:underline">Hapus</button></td></tr>`;
-                    if(selectBayar && u.role === 'operator') selectBayar.innerHTML += `<option value="${u.username}">${u.username}</option>`;
-                });
-                hitungPreviewKomisi();
+        async function loadUsers() {
+            let res = await fetch(SCRIPT_URL + "?action=get_users");
+            let data = await res.json();
+            let tbody = document.getElementById("userTableBody"), selectBayar = document.getElementById("bayarOperator");
+            if(tbody) tbody.innerHTML = ""; if(selectBayar) selectBayar.innerHTML = "";
+            data.forEach(u => {
+                if(tbody && u.role === 'operator') tbody.innerHTML += `<tr><td class="p-3 font-semibold">${u.username}</td><td class="p-3 uppercase text-sky-600">${u.role}</td><td class="p-3"><button onclick="hapusUser('${u.username}')" class="text-rose-600 hover:underline">Hapus</button></td></tr>`;
+                if(selectBayar && u.role === 'operator') selectBayar.innerHTML += `<option value="${u.username}">${u.username}</option>`;
             });
+            hitungPreviewKomisi();
         }
 
         document.getElementById("addUserForm").addEventListener("submit", e => {
@@ -470,33 +722,43 @@
             }
         }
 
-        function updateHargaOtomatis() {
-            let m = masterHargaList.find(i => i.jenis === document.getElementById("jenisGalon").value);
-            if(m) {
-                let t = m.harga * (document.getElementById("jumlah").value || 1);
-                document.getElementById("total").value = t; document.getElementById("totalDisplay").value = "Rp " + t.toLocaleString();
-            }
-        }
-        function hitungTotal() { updateHargaOtomatis(); }
-
         function togglePenghutangField() {
             let s = document.getElementById("status").value, c = document.getElementById("penghutangContainer");
             if(s === "Bon / Utang") { c.classList.remove("hidden"); document.getElementById("penghutang").required = true; }
             else { c.classList.add("hidden"); document.getElementById("penghutang").required = false; document.getElementById("penghutang").value = ""; }
         }
 
-        // Submit Transaksi
         document.getElementById("transactionForm").addEventListener("submit", e => {
             e.preventDefault();
             let btn = document.getElementById("submitBtn");
-            btn.disabled = true; btn.innerText = "Menyimpan...";
+            let listProduk = [];
+            document.querySelectorAll("#listProdukContainer > div").forEach(row => {
+                let select = row.querySelector(".produk-jenis");
+                let jumlahInput = row.querySelector(".produk-jumlah");
+                let opt = select.options[select.selectedIndex];
+                if(select.value && jumlahInput.value) {
+                    listProduk.push({ jenis: select.value, jumlah: jumlahInput.value, harga: opt.dataset.harga });
+                }
+            });
 
+            if(listProduk.length === 0) { showPopup("Peringatan", "Harap tambahkan minimal 1 produk galon!", false); return; }
+
+            let listRusak = [];
+            if(document.getElementById("tipePembeli").value === "Agen") {
+                document.querySelectorAll("#listGalonRusakContainer > div").forEach(r => {
+                    let j = r.querySelector(".rusak-jenis").value;
+                    let k = r.querySelector(".rusak-kondisi").value;
+                    let jml = r.querySelector(".rusak-jumlah").value;
+                    if(j && k && jml) { listRusak.push({ jenis: j, kondisi: k, jumlah: jml }); }
+                });
+            }
+
+            btn.disabled = true; btn.innerText = "Menyimpan...";
             let data = {
                 action: "save_transaction", operator: loggedInUser,
                 tipePembeli: document.getElementById("tipePembeli").value,
                 namaAgen: document.getElementById("namaAgen").value,
-                jenis: document.getElementById("jenisGalon").value,
-                jumlah: document.getElementById("jumlah").value,
+                listProduk: listProduk, listRusak: listRusak,
                 total: document.getElementById("total").value,
                 status: document.getElementById("status").value,
                 penghutang: document.getElementById("penghutang").value
@@ -505,27 +767,28 @@
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(data) }).then(() => {
                 showPopup("Sukses", "Transaksi berhasil disimpan!");
                 document.getElementById("transactionForm").reset();
-                document.getElementById("totalDisplay").value = "Rp 0";
                 toggleTipePembeli(); togglePenghutangField();
+                document.getElementById("listProdukContainer").innerHTML = "";
+                tambahBarisProduk();
                 btn.disabled = false; btn.innerText = "Simpan Transaksi";
-                setTimeout(() => { loadTransaksi(); loadKeuangan(); }, 1000);
+                setTimeout(() => { refreshAllData(); }, 1000);
             }).catch(() => {
                 showPopup("Error", "Gagal menyimpan.", false);
                 btn.disabled = false; btn.innerText = "Simpan Transaksi";
             });
         });
 
-        // Submit Keuangan Manual
         document.getElementById("keuanganForm").addEventListener("submit", e => {
             e.preventDefault();
             let btn = document.getElementById("submitKasBtn");
             btn.disabled = true; btn.innerText = "Menyimpan...";
-
             let data = {
                 action: "save_keuangan",
                 jenis: (loggedInRole === 'owner') ? document.getElementById("kasJenis").value : "Pengeluaran",
                 kategori: document.getElementById("kasKategori").value,
                 jumlah: document.getElementById("kasJumlah").value,
+                satuanJumlah: document.getElementById("satuanJumlah").value,
+                satuanUnit: document.getElementById("satuanUnit").value,
                 keterangan: document.getElementById("kasKeterangan").value,
                 operator: loggedInUser
             };
@@ -533,6 +796,7 @@
             fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(data) }).then(() => {
                 showPopup("Sukses", "Catatan keuangan disimpan!");
                 document.getElementById("keuanganForm").reset();
+                document.getElementById("containerSatuan").classList.add("hidden");
                 btn.disabled = false; btn.innerText = "Simpan Keuangan";
                 setTimeout(() => loadKeuangan(), 1000);
             }).catch(() => { btn.disabled = false; btn.innerText = "Simpan Keuangan"; });
@@ -551,72 +815,257 @@
         function resetFilterRiwayat() {
             document.getElementById("filterTglMulai").value = "";
             document.getElementById("filterTglSelesai").value = "";
-            loadTransaksi(); loadKeuangan();
+            currentPageRiwayat = 1;
+            loadTransaksi(); loadGalonRusak();
         }
 
-        function loadTransaksi() {
-            fetch(SCRIPT_URL + "?action=get_transaksi").then(res => res.json()).then(data => {
-                globalTransaksiData = data;
-                let tbody = document.getElementById("dataTable"), tbodyKomisi = document.getElementById("komisiTable");
-                tbody.innerHTML = ""; tbodyKomisi.innerHTML = "";
-                let totJual = 0, totKomisiBelumDibayar = 0;
+        // PIUTANG & VERIFIKASI PELUNASAN (TABEL DETAIL SESUAI PESANAN)
+        async function loadPiutangAgen() {
+            let res = await fetch(SCRIPT_URL + "?action=get_transaksi");
+            let data = await res.json();
+            let tbody = document.getElementById("piutangTable");
+            if(!tbody) return;
+            tbody.innerHTML = "";
+            let query = document.getElementById("searchPiutang").value.toLowerCase();
+            
+            let listPiutang = data.filter(row => row.status === "Bon / Utang" && (!query || row.namaPembeli.toLowerCase().includes(query) || row.penghutang.toLowerCase().includes(query)));
+            
+            let totalPages = Math.ceil(listPiutang.length / pageSizePiutang) || 1;
+            if(currentPagePiutang > totalPages) currentPagePiutang = totalPages;
+            let start = (currentPagePiutang - 1) * pageSizePiutang;
+            let paginated = listPiutang.slice().reverse().slice(start, start + pageSizePiutang);
 
-                data.reverse().forEach(row => {
-                    if(!checkDateFilter(row.tanggalRaw)) return;
-                    
-                    let isMyData = (loggedInRole === 'owner' || row.operator === loggedInUser);
-                    if(row.status === "Lunas") totJual += Number(row.total || 0);
+            document.getElementById("pageInfoPiutang").innerText = `Halaman ${currentPagePiutang} dari ${totalPages}`;
 
-                    // Hitung total komisi HANYA yang belum dibayar untuk operator yang bersangkutan
-                    if(isMyData && row.statusKomisi === "Belum Dibayar") {
-                        totKomisiBelumDibayar += Number(row.komisi || 0);
+            paginated.forEach(row => {
+                let infoRusak = row.infoRusak !== "-" ? `<span class="text-rose-600 font-semibold">${row.infoRusak}</span>` : `<span class="text-slate-400">Tidak ada</span>`;
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="p-3 text-slate-500">${row.tanggal}</td>
+                        <td class="p-3 font-bold text-slate-700">${row.namaPembeli}<br><span class="text-[10px] text-amber-600 font-normal">Catatan: ${row.penghutang}</span></td>
+                        <td class="p-3 font-medium text-sky-700">${row.detailProduk}<br><span class="text-slate-500 text-[11px]">Total: ${row.jumlah} galon</span></td>
+                        <td class="p-3 font-bold text-slate-900">Rp ${Number(row.total).toLocaleString()}</td>
+                        <td class="p-3">${infoRusak}</td>
+                        <td class="p-3">
+                            <button onclick='bukaModalPelunasan(${JSON.stringify(row)})' class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm">Lunasi</button>
+                        </td>
+                    </tr>
+                `;
+            });
+            if(paginated.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-400">Tidak ada data piutang agen.</td></tr>`;
+            }
+        }
+
+        function changePagePiutang(dir) {
+            currentPagePiutang += dir;
+            if(currentPagePiutang < 1) currentPagePiutang = 1;
+            loadPiutangAgen();
+        }
+
+        function bukaModalPelunasan(row) {
+            activeTargetPiutang = row.id;
+            document.getElementById("infoDetailPiutang").innerHTML = `
+                <b>Agen:</b> ${row.namaPembeli}<br>
+                <b>Waktu Pesan:</b> ${row.tanggal}<br>
+                <b>Total Tagihan:</b> Rp ${Number(row.total).toLocaleString()}
+            `;
+
+            // Parsing detail produk dari string detailProduk (Contoh: "Isi Ulang Galon Aqua (5 gln @Rp4500), Isi Ulang Galon BM Water (4 gln @Rp3500)")
+            let tabelBody = document.getElementById("tabelCekKondisiRetur");
+            tabelBody.innerHTML = "";
+
+            let items = row.detailProduk.split(",");
+            items.forEach((item, idx) => {
+                item = item.trim();
+                let match = item.match(/(.+?)\s\((\d+)\sgln/);
+                if(match) {
+                    let jenis = match[1];
+                    let jumlah = match[2];
+                    tabelBody.innerHTML += `
+                        <tr class="item-retur-row" data-jenis="${jenis}" data-jumlah="${jumlah}">
+                            <td class="p-2 border font-medium">${jenis}</td>
+                            <td class="p-2 border font-bold">${jumlah} gln</td>
+                            <td class="p-2 border text-slate-500">Baik</td>
+                            <td class="p-2 border">
+                                <select class="px-2 py-1 bg-slate-50 border rounded text-xs select-kondisi" onchange="toggleInputPecahRetur(this)">
+                                    <option value="Baik">Baik (Semua)</option>
+                                    <option value="Pecah">Ada yang Pecah / Rusak</option>
+                                </select>
+                                <input type="number" min="1" max="${jumlah}" value="1" class="hidden mt-1 w-20 px-2 py-1 border rounded text-xs input-jml-pecah" placeholder="Jml pecah">
+                            </td>
+                        </tr>
+                    `;
+                }
+            });
+
+            document.getElementById("modalPelunasan").classList.remove("hidden");
+        }
+
+        function toggleInputPecahRetur(selectEl) {
+            let inputJml = selectEl.parentElement.querySelector(".input-jml-pecah");
+            if(selectEl.value === "Pecah") inputJml.classList.remove("hidden");
+            else inputJml.classList.add("hidden");
+        }
+
+        function prosesLunasPiutangFinal() {
+            if(!activeTargetPiutang) return;
+            
+            let rincianPecah = [];
+            let rows = document.querySelectorAll(".item-retur-row");
+            rows.forEach(r => {
+                let jenis = r.dataset.jenis;
+                let kondisi = r.querySelector(".select-kondisi").value;
+                if(kondisi === "Pecah") {
+                    let jmlPecah = r.querySelector(".input-jml-pecah").value;
+                    rincianPecah.push(`${jmlPecah} galon ${jenis} (Pecah)`);
+                }
+            });
+
+            let detailPecahStr = rincianPecah.length > 0 ? rincianPecah.join("; ") : "-";
+
+            fetch(SCRIPT_URL, { 
+                method: "POST", 
+                body: JSON.stringify({ action: "lunas_piutang", idTransaksi: activeTargetPiutang, detailPecah: detailPecahStr, operator: loggedInUser }) 
+            })
+            .then(res => res.json()).then(res => {
+                if(res.result === "success") {
+                    document.getElementById("modalPelunasan").classList.add("hidden");
+                    showPopup("Sukses", "Piutang berhasil dilunasi & dicatat ke kas!");
+                    refreshAllData();
+                } else { showPopup("Gagal", "Gagal memproses pelunasan.", false); }
+            });
+        }
+
+        async function loadTransaksi() {
+            let res = await fetch(SCRIPT_URL + "?action=get_transaksi");
+            globalTransaksiData = await res.json();
+            let tbody = document.getElementById("dataTable"), tbodyKomisi = document.getElementById("komisiTable");
+            if(tbody) tbody.innerHTML = ""; if(tbodyKomisi) tbodyKomisi.innerHTML = "";
+            let totJual = 0, totKomisiBelumDibayar = 0, totalGalonTerjual = 0;
+
+            let filteredTx = globalTransaksiData.filter(row => checkDateFilter(row.tanggalRaw));
+            
+            let totalPages = Math.ceil(filteredTx.length / pageSizeRiwayat) || 1;
+            if(currentPageRiwayat > totalPages) currentPageRiwayat = totalPages;
+            let start = (currentPageRiwayat - 1) * pageSizeRiwayat;
+            let paginatedTx = filteredTx.slice().reverse().slice(start, start + pageSizeRiwayat);
+
+            if(document.getElementById("pageInfoRiwayat")) {
+                document.getElementById("pageInfoRiwayat").innerText = `Halaman ${currentPageRiwayat} dari ${totalPages}`;
+            }
+
+            globalTransaksiData.forEach(row => {
+                if(row.status === "Lunas") {
+                    totJual += Number(row.total || 0);
+                    totalGalonTerjual += Number(row.jumlah || 0);
+                }
+                if((loggedInRole === 'owner' || row.operator === loggedInUser) && row.statusKomisi === "Belum Dibayar") {
+                    totKomisiBelumDibayar += Number(row.komisi || 0);
+                }
+            });
+
+            paginatedTx.forEach(row => {
+                let isMyData = (loggedInRole === 'owner' || row.operator === loggedInUser);
+                if(isMyData) {
+                    if(tbody) {
+                        let stBadge = row.status === 'Lunas' ? `<span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">Lunas</span>` : `<span class="bg-amber-50 text-amber-800 px-2 py-0.5 rounded">Piutang: ${row.penghutang}</span>`;
+                        let infoRusakBadge = row.infoRusak !== "-" ? `<span class="text-rose-600 font-medium">${row.infoRusak}</span>` : `<span class="text-slate-400">-</span>`;
+                        tbody.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}<br><b>${row.operator}</b></td><td class="p-3">${row.namaPembeli}</td><td class="p-3">${row.detailProduk}</td><td class="p-3 font-bold">Rp ${Number(row.total).toLocaleString()}<br>${stBadge}</td><td class="p-3">${infoRusakBadge}</td></tr>`;
                     }
 
-                    // Riwayat Penjualan
-                    if(loggedInRole === 'owner' || row.operator === loggedInUser) {
-                        let stBadge = row.status === 'Lunas' ? `<span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">Lunas</span>` : `<span class="bg-rose-50 text-rose-700 px-2 py-0.5 rounded">Bon: ${row.penghutang}</span>`;
-                        tbody.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}<br><b>${row.operator}</b></td><td class="p-3">${row.namaPembeli}</td><td class="p-3">${row.jenis} (${row.jumlah} gln)</td><td class="p-3 font-bold">Rp ${Number(row.total).toLocaleString()}<br>${stBadge}</td><td class="p-3 text-sky-600 font-semibold">Rp ${Number(row.komisi).toLocaleString()}</td></tr>`;
-                    }
-
-                    // Tabel Komisi (Filter tanggal komisi)
-                    if(isMyData) {
-                        if(!checkDateFilter(row.tanggalRaw, 'filterKomisiMulai', 'filterKomisiSelesai')) return;
-
+                    if(tbodyKomisi && checkDateFilter(row.tanggalRaw, 'filterKomisiMulai', 'filterKomisiSelesai')) {
                         let isPaid = row.statusKomisi === "Sudah Dibayar";
                         let stK = row.statusKomisi === "Tidak Ada Komisi" ? `<span>-</span>` : `<span class="px-2 py-1 rounded text-[10px] font-semibold ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}">${row.statusKomisi}</span>`;
-                        tbodyKomisi.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}</td><td class="p-3 font-semibold">${row.operator}</td><td class="p-3">${row.namaPembeli} (${row.jumlah} gln)</td><td class="p-3 font-bold text-sky-600">Rp ${Number(row.komisi).toLocaleString()}</td><td class="p-3">${stK}</td></tr>`;
+                        tbodyKomisi.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}</td><td class="p-3 font-semibold">${row.operator}</td><td class="p-3">${row.namaPembeli}</td><td class="p-3 font-bold text-slate-700">${row.jumlah} gln</td><td class="p-3 font-bold text-sky-600">Rp ${Number(row.komisi).toLocaleString()}</td><td class="p-3">${stK}</td></tr>`;
                     }
-                });
-
-                document.getElementById("sumPenjualan").innerText = "Rp " + totJual.toLocaleString();
-                document.getElementById("totalKomisiSaya").innerText = "Rp " + totKomisiBelumDibayar.toLocaleString();
-                hitungPreviewKomisi();
+                }
             });
+
+            if(document.getElementById("sumPenjualan")) document.getElementById("sumPenjualan").innerText = "Rp " + totJual.toLocaleString();
+            if(document.getElementById("sumGalonTerjual")) document.getElementById("sumGalonTerjual").innerText = totalGalonTerjual + " Galon";
+            if(document.getElementById("totalKomisiSaya")) document.getElementById("totalKomisiSaya").innerText = "Rp " + totKomisiBelumDibayar.toLocaleString();
+            
+            if(loggedInRole === 'owner') { analisisKontrolStok(); }
+            hitungPreviewKomisi();
         }
 
-        function loadKeuangan() {
-            fetch(SCRIPT_URL + "?action=get_keuangan").then(res => res.json()).then(data => {
-                let tbody = document.getElementById("keuanganTable");
-                tbody.innerHTML = "";
-                let totPemLain = 0, totPeng = 0;
+        function changePageRiwayat(dir) {
+            currentPageRiwayat += dir;
+            if(currentPageRiwayat < 1) currentPageRiwayat = 1;
+            loadTransaksi();
+        }
 
-                data.reverse().forEach(row => {
-                    if(!checkDateFilter(row.tanggalRaw)) return;
-                    if(loggedInRole === 'operator' && row.operator !== loggedInUser) return;
+        async function loadKeuangan() {
+            let res = await fetch(SCRIPT_URL + "?action=get_keuangan");
+            globalKeuanganData = await res.json();
+            let tbody = document.getElementById("keuanganTable");
+            if(tbody) tbody.innerHTML = "";
+            let totPemLain = 0, totPeng = 0;
 
-                    if(row.jenis === "Pemasukan") totPemLain += Number(row.jumlah);
-                    if(row.jenis === "Pengeluaran") totPeng += Number(row.jumlah);
+            globalKeuanganData.slice().reverse().forEach(row => {
+                if(loggedInRole === 'operator' && row.operator !== loggedInUser) return;
+                if(row.jenis === "Pemasukan") totPemLain += Number(row.jumlah);
+                if(row.jenis === "Pengeluaran") totPeng += Number(row.jumlah);
 
+                if(tbody) {
                     let badge = row.jenis === "Pemasukan" ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700";
                     tbody.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}</td><td class="p-3"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${badge}">${row.jenis}</span></td><td class="p-3 font-medium">${row.kategori}<br><span class="text-slate-400 text-[11px]">${row.keterangan || ''}</span></td><td class="p-3 font-bold">Rp ${Number(row.jumlah).toLocaleString()}</td><td class="p-3 text-slate-500">${row.operator}</td></tr>`;
-                });
-
-                document.getElementById("sumPemasukanLain").innerText = "Rp " + totPemLain.toLocaleString();
-                document.getElementById("sumPengeluaran").innerText = "Rp " + totPeng.toLocaleString();
+                }
             });
+
+            if(document.getElementById("sumPemasukanLain")) document.getElementById("sumPemasukanLain").innerText = "Rp " + totPemLain.toLocaleString();
+            if(document.getElementById("sumPengeluaran")) document.getElementById("sumPengeluaran").innerText = "Rp " + totPeng.toLocaleString();
+            if(loggedInRole === 'owner') { analisisKontrolStok(); }
         }
 
-        // Preview otomatis hitung nominal komisi yang akan dibayar
+        async function loadGalonRusak() {
+            let res = await fetch(SCRIPT_URL + "?action=get_galon_rusak");
+            let data = await res.json();
+            let tbody = document.getElementById("galonRusakTable");
+            if(tbody) {
+                tbody.innerHTML = "";
+                data.slice().reverse().forEach(row => {
+                    if(!checkDateFilter(row.tanggalRaw)) return;
+                    tbody.innerHTML += `<tr><td class="p-3 text-slate-500">${row.tanggal}</td><td class="p-3 font-semibold">${row.agen}</td><td class="p-3 text-rose-600">${row.detailRusak}</td><td class="p-3 text-slate-500">${row.operator}</td></tr>`;
+                });
+            }
+        }
+
+        function analisisKontrolStok() {
+            let totalGalonTerjual = 0;
+            globalTransaksiData.forEach(row => {
+                if(row.status === "Lunas") totalGalonTerjual += Number(row.jumlah || 0);
+            });
+
+            let totalAirBeliLiter = 0, totalTutupBeliPcs = 0;
+            globalKeuanganData.forEach(row => {
+                if(row.jenis === "Pengeluaran" && row.keterangan) {
+                    if(row.kategori === "Air") {
+                        let match = row.keterangan.match(/Beli\s(\d+)\sLiter/);
+                        if(match) totalAirBeliLiter += Number(match[1]);
+                    }
+                    if(row.kategori === "Tutup Botol") {
+                        let match = row.keterangan.match(/Beli\s(\d+)\sPcs/);
+                        if(match) totalTutupBeliPcs += Number(match[1]);
+                    }
+                }
+            });
+
+            let perkiraanAirDibutuhkan = totalGalonTerjual * 19;
+            let perkiraanTutupDibutuhkan = totalGalonTerjual * 1;
+            let selisihAir = totalAirBeliLiter - perkiraanAirDibutuhkan;
+            let selisihTutup = totalTutupBeliPcs - perkiraanTutupDibutuhkan;
+
+            let alertHtml = `<b>Analisis Kontrol Stok (Real-Time):</b><br>`;
+            alertHtml += `- Total Galon Terjual: <b>${totalGalonTerjual} galon</b><br>`;
+            alertHtml += `- Total Pembelian Air: <b>${totalAirBeliLiter} Liter</b> (Estimasi kebutuhan: ${perkiraanAirDibutuhkan} L | Selisih: ${selisihAir >= 0 ? '+' + selisihAir : selisihAir} L)<br>`;
+            alertHtml += `- Total Pembelian Tutup: <b>${totalTutupBeliPcs} Pcs</b> (Estimasi kebutuhan: ${perkiraanTutupDibutuhkan} Pcs | Selisih: ${selisihTutup >= 0 ? '+' + selisihTutup : selisihTutup} Pcs)`;
+            
+            let el = document.getElementById("stokAlertText");
+            if(el) el.innerHTML = alertHtml;
+        }
+
         function hitungPreviewKomisi() {
             let op = document.getElementById("bayarOperator").value;
             let tM = document.getElementById("tglMulai").value;
@@ -626,7 +1075,6 @@
             if(op && tM && tS) {
                 let mTime = new Date(tM).getTime();
                 let sTime = new Date(tS).setHours(23,59,59,999);
-
                 globalTransaksiData.forEach(row => {
                     if(row.operator === op && row.statusKomisi === "Belum Dibayar" && row.tanggalRaw >= mTime && row.tanggalRaw <= sTime) {
                         total += Number(row.komisi || 0);
@@ -646,7 +1094,7 @@
                 .then(res => res.json()).then(res => {
                     if(res.result === "success") {
                         showPopup("Sukses", `Komisi sebesar Rp ${Number(res.totalBayar).toLocaleString()} berhasil dibayar & masuk ke pengeluaran!`);
-                        loadTransaksi(); loadKeuangan();
+                        refreshAllData();
                     } else { showPopup("Gagal", "Gagal memproses pembayaran.", false); }
                 });
             }
