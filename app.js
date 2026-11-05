@@ -1,27 +1,11 @@
 /*******************************************************
  * BM WATER - FRONTEND (GitHub Pages)
  * Backend: Google Apps Script
- *
- * FIX 05 Nov 2026 - dropdown produk/agen langsung muncul:
- *   1) fetchProducts() & fetchAgents() ditambahkan (sebelumnya dipanggil
- *      tapi tidak ada definisinya -> dropdown tidak terisi).
- *   2) Setiap modal penjualan SELALU ambil data terbaru dari server,
- *      jadi produk/agen baru langsung muncul tanpa perlu pindah tab.
- *   3) openModal() memaksa reflow agar opsi <select> langsung ter-render.
- *   4) Filter status toleran (huruf besar/kecil, Status kosong) + fallback,
- *      dropdown tidak pernah kosong karena selisih format Status.
- *   5) v1.2: data produk & agen di-prefetch sejak login/halaman dibuka;
- *      modal penjualan terbuka seketika, dropdown terisi instan dari cache
- *      lalu disegarkan otomatis dari server. Versi tampil di layar login.
  *******************************************************/
 
 // ============ CONFIG ============
 const API_URL = 'https://script.google.com/macros/s/AKfycbw4fnyrVl5i2EvwDQWMzG-xQLQjfJ0oeDE1KhiIycUY4UrRJt6hGteF_xwD6JiCZFk/exec';
 // Ganti dengan URL Web App Apps Script Anda
-
-const APP_VERSION = 'v1.2-dropdownfix';
-console.log('%cBM Water ' + APP_VERSION,
-  'background:#0284c7;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold');
 
 const STATE = {
   user: null,
@@ -37,11 +21,13 @@ function api(action, payload) {
     const params = new URLSearchParams({
       action: action,
       payload: JSON.stringify(payload || {}),
-      callback: callback,
-      _t: Date.now()
+      callback: callback
     });
     const script = document.createElement('script');
-    const timer = setTimeout(() => { cleanup(); reject(new Error('Request timeout')); }, 30000);
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Request timeout'));
+    }, 30000);
 
     function cleanup() {
       clearTimeout(timer);
@@ -50,43 +36,13 @@ function api(action, payload) {
     }
     window[callback] = function(res) {
       cleanup();
-      if (res && res.ok) resolve(res.data);
-      else reject(new Error((res && res.error) || 'Unknown error'));
+      if (res.ok) resolve(res.data);
+      else reject(new Error(res.error));
     };
     script.onerror = function() { cleanup(); reject(new Error('Network error')); };
     script.src = API_URL + '?' + params.toString();
     document.body.appendChild(script);
   });
-}
-
-// ============ MASTER DATA (cache pendek + prefetch + segarkan otomatis) ============
-const MASTER_TTL = 15000; // cache dianggap segar selama 15 detik
-
-async function fetchProducts(force) {
-  if (!force && STATE.cache.products) return STATE.cache.products;
-  const list = await api('getProducts', {});
-  STATE.cache.products = list;
-  return list;
-}
-async function fetchAgents(force) {
-  if (!force && STATE.cache.agents) return STATE.cache.agents;
-  const list = await api('getAgents', {});
-  STATE.cache.agents = list;
-  return list;
-}
-function invalidateMaster() {
-  STATE.cache.products = null;
-  STATE.cache.productsAt = 0;
-  STATE.cache.agents = null;
-  STATE.cache.agentsAt = 0;
-}
-
-// Dipanggil saat login & saat halaman dibuka: data sudah dimuat lebih awal,
-// sehingga dropdown penjualan terisi seketika saat modal dibuka.
-function prefetchMaster() {
-  if (!STATE.user) return;
-  fetchProducts().catch(() => {});
-  fetchAgents().catch(() => {});
 }
 
 // ============ HELPERS ============
@@ -103,14 +59,9 @@ function toast(msg, type) {
   t.className = 'toast show ' + (type || '');
   setTimeout(() => t.className = 'toast ' + (type || ''), 2500);
 }
-function openModal(html, onReady) {
-  const modalEl = $('#modal');
-  if (modalEl) modalEl.innerHTML = '';
+function openModal(html) {
+  $('#modal').innerHTML = html;
   $('#modal-bg').classList.add('show');
-  setTimeout(() => {
-    modalEl.innerHTML = html;
-    if (typeof onReady === 'function') onReady();
-  }, 0);
 }
 function closeModal() { $('#modal-bg').classList.remove('show'); }
 function confirmBox(msg) { return window.confirm(msg); }
@@ -128,7 +79,6 @@ function doLogin(e) {
     .then(user => {
       STATE.user = user;
       localStorage.setItem('bw_user', JSON.stringify(user));
-      prefetchMaster(); // muat data produk & agen lebih awal
       renderApp();
       toast('Selamat datang, ' + user.Nama, 'success');
     })
@@ -163,7 +113,7 @@ function renderLogin() {
           <button class="btn" type="submit">MASUK</button>
         </form>
         <p style="margin-top:14px;font-size:11px;color:#999;text-align:center">
-          Default: owner/owner123 • operator/operator123<br>versi ${APP_VERSION}
+          Default: owner/owner123 • operator/operator123
         </p>
       </div>
     </div>`;
@@ -176,7 +126,7 @@ function renderApp() {
       <div class="header">
         <div>
           <h1>💧 BM Water</h1>
-          <div class="user">${esc(u.Nama)} • ${u.Role} • ${APP_VERSION}</div>
+          <div class="user">${esc(u.Nama)} • ${u.Role}</div>
         </div>
         <button onclick="logout()">Keluar</button>
       </div>
@@ -390,62 +340,20 @@ async function cancelTrx(id) {
 }
 
 // ============ MODAL PENJUALAN ============
-function opsiProdukHTML(tipe, list) {
-  return (list || []).map(p =>
-    `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(tipe === 'AGEN' ? p.HargaAgen : p.HargaKonsumen)}</option>`
-  ).join('');
-}
-
-// Isi dropdown produk dari data terbaru; pilihan user dipertahankan,
-// dan render dilewati bila datanya tidak berubah (hindari flicker).
-function isiOpsiProduk(tipe, list) {
-  const sel = document.getElementById('s_produk');
-  if (!sel) return;
-  let pool = (list || []).filter(p => !p.Status || String(p.Status).toLowerCase() === 'aktif');
-  if (!pool.length) pool = list || [];
-  if (!pool.length) return; // data kosong: pertahankan isi dropdown lama
-  const sig = JSON.stringify(pool.map(p => [p.ID, p.Nama, p.HargaKonsumen, p.HargaAgen, p.KomisiJual, p.KomisiAntar]));
-  if (sig === sel.dataset.sig) return;
-  const prev = sel.value;
-  sel.dataset.sig = sig;
-  sel.innerHTML = opsiProdukHTML(tipe, pool);
-  if (prev && pool.some(p => String(p.ID) === String(prev))) sel.value = prev;
-  hitungTotal(tipe);
-}
-
-function isiOpsiAgen(list) {
-  const sel = document.getElementById('s_agen');
-  if (!sel) return;
-  if (!list || !list.length) return;
-  const sig = JSON.stringify(list.map(a => [a.ID, a.Nama]));
-  if (sig === sel.dataset.sig) return;
-  const prev = sel.value;
-  sel.dataset.sig = sig;
-  sel.innerHTML = list.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
-  if (prev && list.some(a => String(a.ID) === String(prev))) sel.value = prev;
-}
-
 async function modalSale(tipe) {
   loading(true);
   try {
-    const products = await fetchProducts();
+    const products = await api('getProducts', {});
     const active = products.filter(p => p.Status === 'Aktif');
-    if (!active.length) {
-      toast('Belum ada produk aktif. Tambahkan dulu di Master Data.', 'error');
-      loading(false); return;
-    }
     let agents = [];
     if (tipe === 'AGEN') {
-      agents = (await fetchAgents()).filter(a => a.Status === 'Aktif');
-      if (!agents.length) { toast('Belum ada agen aktif.', 'error'); loading(false); return; }
+      agents = (await api('getAgents', {})).filter(a => a.Status === 'Aktif');
     }
-
     const opts = active.map(p =>
       `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(p.HargaKonsumen)}</option>`
     ).join('');
     const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
-
-    const html = `
+    openModal(`
       <div class="modal-header"><h3>Penjualan ${tipe}</h3><button onclick="closeModal()">×</button></div>
       <div class="modal-body">
         <form onsubmit="submitSale(event,'${tipe}')">
@@ -481,33 +389,26 @@ async function modalSale(tipe) {
             <textarea id="s_catatan" rows="2" placeholder="Contoh: Pak Dedi, dibayar besok"></textarea></div>
           <button class="btn" type="submit">SIMPAN TRANSAKSI</button>
         </form>
-      </div>`;
-
-    openModal(html, () => {
-      const sel = document.getElementById('s_produk');
-      if (sel && sel.options.length > 0) sel.selectedIndex = 0;
-      hitungTotal(tipe);
-    });
+      </div>`);
+    hitungTotal(tipe);
   } catch (e) { toast(e.message, 'error'); }
   loading(false);
 }
 
 function hitungTotal(tipe) {
   const sel = $('#s_produk'); if (!sel) return;
-  if (sel.selectedIndex < 0 && sel.options.length > 0) sel.selectedIndex = 0;
-  const opt = sel.options[sel.selectedIndex]; if (!opt) return;
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt) return;
   const isAgen = tipe === 'AGEN';
   const harga = isAgen ? Number(opt.dataset.ha) : Number(opt.dataset.h);
-  const jumlah = Math.max(1, num('s_jumlah'));
+  const jumlah = num('s_jumlah');
   const total = harga * jumlah;
-  const totalEl = $('#s_total'); if (totalEl) totalEl.textContent = rp(total);
-  const hargaEl = $('#s_harga'); if (hargaEl) hargaEl.textContent = `Harga: ${rp(harga)} × ${jumlah}`;
+  $('#s_total').textContent = rp(total);
+  $('#s_harga').textContent = `Harga: ${rp(harga)} × ${jumlah}`;
   if (isAgen) {
-    const delivEl = $('#s_deliv'), komisiEl = $('#s_komisi');
-    if (delivEl && komisiEl) {
-      const rate = delivEl.value === 'DIAMBIL_AGEN' ? Number(opt.dataset.kj) : Number(opt.dataset.ka);
-      komisiEl.value = rp(rate * jumlah);
-    }
+    const deliv = $('#s_deliv').value;
+    const rate = deliv === 'DIAMBIL_AGEN' ? Number(opt.dataset.kj) : Number(opt.dataset.ka);
+    $('#s_komisi').value = rp(rate * jumlah);
   }
   toggleBayar();
 }
@@ -523,8 +424,6 @@ function toggleBayar() {
 
 async function submitSale(e, tipe) {
   e.preventDefault();
-  if (!val('s_produk')) { toast('Data produk belum termuat, tunggu sebentar lalu simpan lagi', 'error'); return; }
-  if (tipe === 'AGEN' && !val('s_agen')) { toast('Pilih agen dulu', 'error'); return; }
   const p = {
     Tipe: tipe,
     ProdukID: val('s_produk'),
@@ -589,7 +488,7 @@ async function submitExpense(e) {
 async function modalGallonCondition() {
   loading(true);
   try {
-    const products = await fetchProducts();
+    const products = await api('getProducts', {});
     const opts = products.map(p => `<option value="${p.ID}">${esc(p.Nama)}</option>`).join('');
     openModal(`
       <div class="modal-header"><h3>Lapor Kondisi Galon</h3><button onclick="closeModal()">×</button></div>
@@ -634,8 +533,8 @@ async function submitGallonCondition(e) {
 async function modalAgentReturn() {
   loading(true);
   try {
-    const agents = await fetchAgents();
-    const products = await fetchProducts();
+    const agents = await api('getAgents', {});
+    const products = await api('getProducts', {});
     const agOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
     const prOpts = products.map(p => `<option value="${p.ID}">${esc(p.Nama)}</option>`).join('');
     openModal(`
@@ -902,7 +801,6 @@ async function submitAgent(e) {
       Catatan: val('a_catatan'),
       UserID: STATE.user.ID
     });
-    invalidateMaster();
     closeModal();
     toast('Agen tersimpan', 'success');
     viewAgents($('#content'));
@@ -940,7 +838,7 @@ async function detailAgen(id) {
 async function viewStock(el) {
   try {
     const s = await api('getStock', {});
-    const products = await fetchProducts();
+    const products = await api('getProducts', {});
     const galonRows = Object.keys(s.galon).map(id => {
       const p = products.find(x => String(x.ID) === String(id));
       return `<tr><td>${esc(p?p.Nama:id)}</td><td>${s.galon[id]}</td></tr>`;
@@ -1352,7 +1250,7 @@ async function submitPurchase(e) {
 // ============ VIEW MASTER DATA ============
 async function viewMaster(el) {
   try {
-    const products = await fetchProducts();
+    const products = await api('getProducts', {});
     el.innerHTML = `<div class="section"><h2>Master Produk</h2>
         <button class="btn" onclick="modalProduct()">+ Produk</button></div>
       <div class="table-wrap">${products.length ? `<table><thead><tr>
@@ -1410,7 +1308,6 @@ async function submitProduct(e) {
       Status: val('p_st'),
       UserID: STATE.user.ID
     });
-    invalidateMaster();
     closeModal();
     toast('Produk tersimpan', 'success');
     viewMaster($('#content'));
@@ -1465,6 +1362,5 @@ async function saveSettings() {
 (function init() {
   const saved = localStorage.getItem('bw_user');
   if (saved) { try { STATE.user = JSON.parse(saved); } catch(e){} }
-  if (STATE.user) prefetchMaster();
   render();
 })();
