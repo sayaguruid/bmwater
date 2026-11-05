@@ -2,1829 +2,1213 @@
 <html lang="id">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>LUMO - Sistem Manajemen Depot</title>
+<meta name="theme-color" content="#0ea5e9">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>LUMO Depot System</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='24' fill='%230ea5e9'/%3E%3Ctext x='50' y='68' font-family='system-ui,sans-serif' font-weight='900' font-size='52' fill='white' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/manifest+json,{%22name%22:%22LUMO%22,%22short_name%22:%22LUMO%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23ffffff%22,%22theme_color%22:%22%230ea5e9%22,%22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/3100/3100576.png%22,%22sizes%22:%22512x512%22,%22type%22:%22image/png%22}]}">
 <script src="https://cdn.tailwindcss.com"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<script>
-tailwind.config = {
-  darkMode: "class",
-  theme: {
-    extend: {
-      colors: {
-        "primary": "#0ea5e9", "primary-dark": "#0284c7", "primary-light": "#e0f2fe",
-        "surface": "#f8fafc", "on-surface": "#0f172a", "on-surface-variant": "#64748b",
-        "tertiary": "#14b8a6", "tertiary-light": "#ccfbf1",
-        "error": "#f43f5e", "error-light": "#ffe4e6",
-        "warning": "#f59e0b", "warning-light": "#fef3c7",
-        "border": "#e2e8f0"
-      },
-      fontFamily: {
-        "body": ["Plus Jakarta Sans","system-ui","sans-serif"],
-        "headline": ["Space Grotesk","system-ui","sans-serif"],
-        "label": ["Space Grotesk","system-ui","sans-serif"]
-      },
-      boxShadow: {
-        "app": "0 1px 3px rgba(15,23,42,0.04), 0 1px 2px rgba(15,23,42,0.02)",
-        "app-lg": "0 10px 15px -3px rgba(15,23,42,0.08), 0 4px 6px -2px rgba(15,23,42,0.04)",
-        "nav": "0 -1px 3px rgba(15,23,42,0.04)"
-      }
-    }
-  }
-}
-</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <style>
-* { -webkit-tap-highlight-color: transparent; }
-html, body { width: 100%; margin: 0; padding: 0; overscroll-behavior: none; -webkit-font-smoothing: antialiased; }
-body { background: #f8fafc; min-height: 100vh; min-height: 100dvh; }
-.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
-.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
-::-webkit-scrollbar { display: none; }
-.material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; user-select: none; }
-.material-symbols-outlined.filled { font-variation-settings: 'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24; }
-.page { animation: fadeIn 0.2s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(8px);} to { opacity: 1; transform: translateY(0);} }
-.nav-item { transition: all 0.15s ease; }
-.nav-item.active { color: #0ea5e9; }
-.nav-item.active .nav-icon { background: #e0f2fe; }
-.nav-item:active { transform: scale(0.92); }
-.card-tap { transition: transform 0.1s ease, box-shadow 0.1s ease; }
-.card-tap:active { transform: scale(0.98); }
-input, select, textarea { font-size: 16px; }
-input:focus, select:focus, textarea:focus { outline: none; }
-input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-input[type=number] { -moz-appearance: textfield; }
-.modal-content { animation: slideUp 0.25s ease-out; }
-@keyframes slideUp { from { transform: translateY(100%);} to { transform: translateY(0);} }
-.pulse-dot { animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
-@keyframes pulse { 0%,100% { opacity: 1;} 50% { opacity: 0.4;} }
-.bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 60px; }
-.bar-chart .bar { flex: 1; background: #0ea5e9; border-radius: 4px 4px 0 0; min-height: 4px; transition: all 0.3s; }
+:root{--lumo:#0ea5e9;--lumo-dark:#0284c7;--lumo-light:#e0f2fe}
+*{-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f3f4f6;padding-bottom:80px}
+.bg-lumo{background-color:var(--lumo)}
+.text-lumo{color:var(--lumo)}
+.btn-primary{background-color:var(--lumo);color:#fff;transition:all .15s}
+.btn-primary:active{background-color:var(--lumo-dark);transform:scale(.97)}
+.view-section{display:none;animation:fadeIn .25s}
+.view-section.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.nav-item{color:#9ca3af;transition:color .15s}
+.nav-item.active{color:var(--lumo);font-weight:700}
+.input-field{width:100%;padding:.75rem;border:1px solid #d1d5db;border-radius:.75rem;background:#f9fafb;font-size:16px;outline:none;transition:border .15s}
+.input-field:focus{border-color:var(--lumo);box-shadow:0 0 0 3px var(--lumo-light)}
+.card{background:#fff;border-radius:1rem;box-shadow:0 1px 3px rgba(0,0,0,.06);border:1px solid #f3f4f6}
+.btn-icon{width:40px;height:40px;border-radius:9999px;display:flex;align-items:center;justify-content:center;background:#fff;border:1px solid #e5e7eb;color:#4b5563}
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:12px 20px;border-radius:12px;color:#fff;font-weight:600;z-index:100;box-shadow:0 10px 25px rgba(0,0,0,.15);animation:slideDown .3s}
+@keyframes slideDown{from{opacity:0;transform:translate(-50%,-20px)}to{opacity:1;transform:translate(-50%,0)}}
+.skeleton{background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 50%,#f3f4f6 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 </style>
 </head>
-<body class="font-body text-on-surface">
+<body>
 
-<!-- POPUP MODAL -->
-<div id="popupModal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-  <div class="bg-white p-6 rounded-3xl shadow-app-lg max-w-sm w-full text-center space-y-3 modal-content">
-    <div id="popupIcon" class="text-4xl">✅</div>
-    <h3 id="popupTitle" class="text-base font-bold text-slate-900 font-headline">Berhasil</h3>
-    <p id="popupMessage" class="text-xs text-slate-500">Pesan...</p>
-    <button onclick="closePopup()" class="w-full mt-2 bg-primary hover:bg-primary-dark text-white py-3 rounded-2xl text-sm font-semibold transition font-label">OK</button>
-  </div>
+<!-- LOADER -->
+<div id="loader" class="fixed inset-0 bg-white/95 z-50 hidden flex-col justify-center items-center backdrop-blur-sm">
+  <i class="fas fa-tint fa-bounce text-4xl text-lumo mb-3"></i>
+  <p class="font-bold text-gray-500 text-sm">Memproses...</p>
 </div>
 
-<!-- MODAL PELUNASAN -->
-<div id="modalPelunasan" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-[100] flex items-end sm:items-center justify-center">
-  <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-app-lg w-full max-w-2xl max-h-[92vh] flex flex-col modal-content">
-    <div class="flex items-center justify-between p-5 border-b border-border shrink-0">
-      <h3 class="text-sm font-bold text-slate-900 font-headline">Verifikasi Pelunasan Piutang</h3>
-      <button onclick="document.getElementById('modalPelunasan').classList.add('hidden')" class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-on-surface-variant">
-        <span class="material-symbols-outlined text-[20px]">close</span>
-      </button>
-    </div>
-    <div class="p-5 overflow-y-auto flex-1 space-y-4">
-      <div id="infoDetailPiutang" class="bg-primary-light p-4 rounded-2xl text-xs text-on-surface space-y-1"></div>
-      <div class="bg-warning-light p-3 rounded-xl">
-        <label class="block text-[10px] font-bold text-amber-800 mb-1 font-label uppercase">Nominal Pelunasan (Rp)</label>
-        <input type="text" id="nominalPelunasan" class="w-full px-3 py-2 bg-white border border-border rounded-lg text-sm font-bold" placeholder="0" oninput="formatRupiahInput(this,'nominalPelunasanVal')">
-        <input type="hidden" id="nominalPelunasanVal" value="0">
-        <p class="text-[10px] text-amber-700 mt-1">Kosongkan / 0 = lunas penuh</p>
+<!-- TOP NAV -->
+<nav id="topNav" class="bg-lumo text-white p-4 shadow-lg hidden sticky top-0 z-40 rounded-b-2xl">
+  <div class="flex justify-between items-center max-w-md mx-auto">
+    <div class="flex items-center gap-2">
+      <div class="bg-white text-lumo w-8 h-8 rounded-full flex items-center justify-center">
+        <i class="fas fa-droplet text-sm"></i>
       </div>
+      <h1 class="text-lg font-black tracking-wide">LUMO</h1>
     </div>
-    <div class="p-5 border-t border-border flex gap-2 shrink-0">
-      <button onclick="prosesLunasPiutangFinal()" class="flex-1 bg-tertiary hover:bg-tertiary/90 text-white py-3.5 rounded-2xl text-sm font-bold transition font-label">Konfirmasi Lunas</button>
-      <button onclick="document.getElementById('modalPelunasan').classList.add('hidden')" class="bg-surface hover:bg-border text-on-surface px-5 py-3.5 rounded-2xl text-sm font-bold transition font-label">Batal</button>
+    <div class="text-right">
+      <p id="navUsername" class="text-sm font-bold leading-none"></p>
+      <p id="navRole" class="text-xs text-blue-100"></p>
     </div>
   </div>
-</div>
+</nav>
 
-<!-- LOGIN -->
-<div id="loginSection" class="min-h-screen flex items-center justify-center p-5 bg-gradient-to-br from-primary-light to-surface">
-  <div class="w-full max-w-sm">
-    <div class="text-center mb-8">
-      <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-3xl shadow-app-lg mb-4">
-        <span class="text-4xl font-black text-primary font-headline">L</span>
+<main class="max-w-md mx-auto p-4">
+
+  <!-- LOGIN -->
+  <section id="view-login" class="view-section active flex flex-col justify-center min-h-[85vh]">
+    <div class="card p-7">
+      <div class="text-center mb-7">
+        <div class="w-20 h-20 bg-lumo text-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-sky-200">
+          <i class="fas fa-droplet text-4xl"></i>
+        </div>
+        <h2 class="text-3xl font-black text-gray-800">LUMO</h2>
+        <p class="text-sm text-gray-500 font-medium mt-1">Sistem Manajemen Depot Air</p>
       </div>
-      <h1 class="text-2xl font-bold text-slate-900 font-headline">LUMO Depot System</h1>
-      <p class="text-sm text-on-surface-variant mt-1">Sistem Kasir & Manajemen Galon</p>
-    </div>
-    <div class="bg-white p-6 rounded-3xl shadow-app-lg space-y-4">
-      <form id="loginForm" class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-label">Username</label>
-          <input type="text" id="username" required autocomplete="username" class="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm focus:border-primary transition font-body">
-        </div>
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 font-label">Password</label>
-          <input type="password" id="password" required autocomplete="current-password" class="w-full px-4 py-3.5 bg-surface border border-border rounded-2xl text-sm focus:border-primary transition font-body">
-        </div>
-        <button type="submit" id="loginBtn" class="w-full bg-primary hover:bg-primary-dark text-white font-bold p-4 rounded-2xl text-sm transition shadow-app font-label active:scale-[0.98]">Masuk Aplikasi</button>
-      </form>
-      <p class="text-[11px] text-center text-on-surface-variant">Default: owner / owner123</p>
-    </div>
-    <p class="text-center text-xs text-on-surface-variant mt-6">© 2026 LUMO Depot System</p>
-  </div>
-</div>
-
-<!-- MAIN APP -->
-<div id="appSection" class="hidden">
-  <header class="fixed top-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-b border-border pt-safe">
-    <div class="h-14 px-4 flex items-center justify-between">
-      <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-9 h-9 bg-primary-light rounded-xl flex items-center justify-center shrink-0">
-          <span class="text-lg font-black text-primary font-headline">L</span>
-        </div>
-        <div class="min-w-0">
-          <h1 class="text-sm font-bold text-slate-900 font-headline leading-tight truncate">LUMO Depot System</h1>
-          <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-tertiary pulse-dot"></span>
-            <span class="text-[10px] text-on-surface-variant font-medium" id="headerSubtitle">Dashboard</span>
-          </div>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="text-right hidden sm:block">
-          <p class="text-[11px] font-bold text-slate-900 font-label leading-tight" id="userNameDisplay">-</p>
-          <p class="text-[10px] text-on-surface-variant uppercase" id="userRoleBadge">-</p>
-        </div>
-        <button onclick="logout()" class="w-9 h-9 rounded-xl bg-error-light text-error flex items-center justify-center active:scale-90 transition">
-          <span class="material-symbols-outlined text-[20px]">logout</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="pt-14 pb-20 min-h-screen">
-
-    <!-- DASHBOARD -->
-    <div id="pageDashboard" class="page px-4 pt-4 space-y-4">
-      <div id="dashboardLoading" class="text-center py-12">
-        <div class="inline-block animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
-        <p class="text-xs text-on-surface-variant mt-3">Memuat data...</p>
-      </div>
-      <div id="dashboardContent" class="hidden space-y-4">
-        <div>
-          <p class="text-xs text-on-surface-variant font-medium">Selamat datang,</p>
-          <h2 class="text-xl font-bold text-slate-900 font-headline" id="dashGreeting">Owner</h2>
-        </div>
-
-        <div class="bg-gradient-to-br from-primary to-primary-dark rounded-3xl p-5 shadow-app-lg text-white relative overflow-hidden">
-          <div class="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full"></div>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Username</label>
           <div class="relative">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-xs font-bold uppercase tracking-wider opacity-90 font-label">Total Omzet Hari Ini</span>
-              <span class="material-symbols-outlined text-[20px]">payments</span>
-            </div>
-            <p class="text-3xl font-bold font-headline" id="dashOmzet">Rp 0</p>
+            <i class="fas fa-user absolute left-4 top-3.5 text-gray-400 text-sm"></i>
+            <input type="text" id="username" class="input-field pl-10" placeholder="Username" required autocomplete="username">
           </div>
         </div>
+        <div class="mb-6">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Password</label>
+          <div class="relative">
+            <i class="fas fa-lock absolute left-4 top-3.5 text-gray-400 text-sm"></i>
+            <input type="password" id="password" class="input-field pl-10" placeholder="Password" required autocomplete="current-password">
+          </div>
+        </div>
+        <button type="submit" class="w-full btn-primary py-3.5 rounded-2xl font-bold text-lg shadow-lg shadow-sky-200">
+          <i class="fas fa-sign-in-alt mr-2"></i> MASUK
+        </button>
+      </form>
+      <p class="text-center text-xs text-gray-400 mt-4">Demo: owner/123 atau operator/123</p>
+    </div>
+  </section>
 
-        <div class="grid grid-cols-2 gap-3">
-          <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Galon Terjual</span>
-            <p class="text-2xl font-bold text-slate-900 font-headline" id="dashGalon">0</p>
-          </div>
-          <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Total Piutang</span>
-            <p class="text-2xl font-bold text-error font-headline" id="dashPiutang">Rp 0</p>
-          </div>
-          <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Galon Tertahan</span>
-            <p class="text-2xl font-bold text-warning font-headline" id="dashTertahan">0</p>
-          </div>
-          <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-            <span class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Komisi Pending</span>
-            <p class="text-2xl font-bold text-warning font-headline" id="dashTotalKomisi">Rp 0</p>
-          </div>
+  <!-- OPERATOR DASHBOARD -->
+  <section id="view-operator" class="view-section">
+    <h2 class="text-lg font-bold text-gray-800 mb-3 ml-1">Ringkasan Hari Ini</h2>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="card p-4 text-center">
+        <div class="bg-blue-100 text-blue-500 w-10 h-10 rounded-full flex items-center justify-center mb-2 mx-auto">
+          <i class="fas fa-cubes"></i>
         </div>
-
-        <div class="bg-gradient-to-br from-tertiary to-tertiary/80 rounded-2xl p-4 shadow-app text-white">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-bold uppercase tracking-wider opacity-90 font-label">Saldo Kas</span>
-            <span class="material-symbols-outlined text-[20px]">account_balance_wallet</span>
-          </div>
-          <p class="text-2xl font-bold font-headline" id="dashSaldo">Rp 0</p>
-          <div class="flex items-center gap-3 mt-2 text-[10px] opacity-90">
-            <span>Masuk: <b id="dashTotalMasuk">Rp 0</b></span>
-            <span>Keluar: <b id="dashTotalKeluar">Rp 0</b></span>
-          </div>
+        <p class="text-3xl font-black text-gray-800" id="opGalon">0</p>
+        <p class="text-xs font-semibold text-gray-500 mt-1">Galon Terjual</p>
+      </div>
+      <div class="card p-4 text-center">
+        <div class="bg-green-100 text-green-500 w-10 h-10 rounded-full flex items-center justify-center mb-2 mx-auto">
+          <i class="fas fa-wallet"></i>
         </div>
+        <p class="text-lg font-black text-green-600 mt-1" id="opKomisi">Rp 0</p>
+        <p class="text-xs font-semibold text-gray-500 mt-1">Komisi Hari Ini</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="card p-4 text-center">
+        <p class="text-2xl font-black text-gray-800" id="opOmzet">Rp 0</p>
+        <p class="text-xs font-semibold text-gray-500 mt-1">Omzet Hari Ini</p>
+      </div>
+      <div class="card p-4 text-center">
+        <p class="text-2xl font-black text-orange-500" id="opBelumBayar">Rp 0</p>
+        <p class="text-xs font-semibold text-gray-500 mt-1">Komisi Belum Dibayar</p>
       </div>
     </div>
 
-    <!-- TRANSAKSI -->
-    <div id="pageTransaksi" class="page hidden px-4 pt-4 space-y-3">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2.5">
-          <div class="w-10 h-10 rounded-2xl bg-primary-light flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-[22px] filled">point_of_sale</span>
-          </div>
-          <div>
-            <h2 class="text-sm font-bold text-slate-900 font-headline">Kasir POS</h2>
-            <p class="text-[10px] text-on-surface-variant" id="ticketNum">-</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-2 shadow-app border border-border">
-        <div class="grid grid-cols-2 gap-1 p-1 bg-surface rounded-xl">
-          <button id="btn-segment-umum" onclick="setSegment('umum')" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label">
-            <span class="material-symbols-outlined text-[18px]">person</span>
-            Konsumen
-          </button>
-          <button id="btn-segment-agen" onclick="setSegment('agen')" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label">
-            <span class="material-symbols-outlined text-[18px]">storefront</span>
-            Agen
-          </button>
-        </div>
-      </div>
-
-      <div id="agen-info-card" class="hidden bg-white rounded-2xl p-3.5 shadow-app border border-border space-y-3">
-        <select id="namaAgen" onchange="updateAgenData(this.value)" class="w-full font-bold text-sm text-slate-900 bg-transparent focus:outline-none font-headline">
-          <option value="">Pilih Agen...</option>
-        </select>
-        <div class="grid grid-cols-2 gap-2">
-          <div class="bg-surface rounded-xl p-3">
-            <p class="text-[10px] text-on-surface-variant font-medium">Galon Tertahan</p>
-            <p class="text-base font-bold text-slate-900 font-headline mt-0.5" id="agen-galon-tertahan">0</p>
-          </div>
-          <div class="bg-error-light rounded-xl p-3">
-            <p class="text-[10px] text-error font-medium">Sisa Bon</p>
-            <p class="text-base font-bold text-error font-headline mt-0.5" id="agen-sisa-bon">Rp 0</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="space-y-2">
-        <div class="flex items-center justify-between px-1">
-          <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider font-label">Pilih Produk</h3>
-        </div>
-        <div id="listProdukContainer" class="space-y-2"></div>
-        <button type="button" onclick="tambahBarisProduk()" class="w-full py-3 border-2 border-dashed border-border rounded-2xl text-on-surface-variant text-xs font-bold hover:bg-surface transition flex items-center justify-center gap-1.5 font-label active:scale-[0.98]">
-          <span class="material-symbols-outlined text-[18px]">add</span>
-          Tambah Produk
-        </button>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-primary text-[18px]">receipt</span>
-            <span class="text-xs font-bold text-slate-900 font-label uppercase tracking-wider">Rincian</span>
-          </div>
-          <span id="badge-total-item" class="text-[10px] bg-surface text-on-surface-variant px-2 py-0.5 rounded-full font-bold font-label">0 ITEM</span>
-        </div>
-        <div id="rincianTransaksiList" class="space-y-1.5 text-xs mb-3">
-          <p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>
-        </div>
-        <div class="flex items-center justify-between pt-3 border-t border-border">
-          <span class="text-xs font-bold text-slate-900 font-label">TOTAL</span>
-          <span id="totalDisplay" class="text-xl font-bold text-primary font-headline">Rp 0</span>
-          <input type="hidden" id="total" value="0">
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-2">
-        <label class="text-xs font-bold text-slate-900 font-label uppercase tracking-wider">Status Pembayaran</label>
-        <select id="status" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm font-medium focus:border-primary transition" onchange="togglePenghutangField()">
-          <option value="Lunas">✅ Lunas</option>
-          <option value="Bon / Utang">📝 Bon / Utang</option>
-        </select>
-        <div id="penghutangContainer" class="hidden">
-          <label class="block text-[10px] font-bold text-amber-800 mb-1 font-label uppercase">Catatan Bon</label>
-          <input type="text" id="penghutang" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Nama / catatan penghutang...">
-        </div>
-      </div>
-
-      <button type="button" id="submitBtn" onclick="submitTransaction()" class="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-2xl text-sm transition shadow-app font-label active:scale-[0.98]">
-        Simpan Transaksi
+    <h2 class="text-lg font-bold text-gray-800 mb-3 ml-1">Menu Cepat</h2>
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="navigate('view-transaksi')" class="bg-lumo text-white p-5 rounded-2xl shadow-md flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-shopping-cart text-3xl mb-2"></i>
+        <p class="font-bold">Penjualan</p>
+      </button>
+      <button onclick="navigate('view-pengeluaran')" class="card p-5 flex flex-col items-center text-gray-700 active:scale-95 transition">
+        <i class="fas fa-receipt text-3xl text-orange-500 mb-2"></i>
+        <p class="font-bold">Pengeluaran</p>
+      </button>
+      <button onclick="navigate('view-pengantaran')" class="card p-5 flex flex-col items-center text-gray-700 active:scale-95 transition">
+        <i class="fas fa-truck text-3xl text-indigo-500 mb-2"></i>
+        <p class="font-bold">Pengantaran</p>
+      </button>
+      <button onclick="navigate('view-komisi')" class="card p-5 flex flex-col items-center text-gray-700 active:scale-95 transition">
+        <i class="fas fa-coins text-3xl text-yellow-500 mb-2"></i>
+        <p class="font-bold">Komisi Saya</p>
+      </button>
+      <button onclick="navigate('view-galon-agen')" class="card p-5 flex flex-col items-center text-gray-700 active:scale-95 transition">
+        <i class="fas fa-truck-loading text-3xl text-purple-500 mb-2"></i>
+        <p class="font-bold">Galon Agen</p>
+      </button>
+      <button onclick="navigate('view-galon-rusak')" class="card p-5 flex flex-col items-center text-gray-700 active:scale-95 transition">
+        <i class="fas fa-exclamation-triangle text-3xl text-red-500 mb-2"></i>
+        <p class="font-bold">Lapor Galon</p>
       </button>
     </div>
+  </section>
 
-    <!-- PIUTANG -->
-    <div id="pagePiutang" class="page hidden px-4 pt-4 space-y-3">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Piutang Agen</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">receipt_long</span>
+  <!-- OWNER DASHBOARD -->
+  <section id="view-owner" class="view-section">
+    <h2 class="text-lg font-bold text-gray-800 mb-3 ml-1">Dashboard Owner</h2>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div class="card p-4">
+        <p class="text-xs font-semibold text-gray-500">Omzet Hari Ini</p>
+        <p class="text-xl font-black text-gray-800 mt-1" id="owOmzetHari">Rp 0</p>
       </div>
-      <div class="relative">
-        <span class="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-[20px]">search</span>
-        <input type="text" id="searchPiutang" oninput="pageState.piutang=1; loadPiutangAgen()" placeholder="Cari nama agen..." class="w-full pl-11 pr-4 py-3 bg-white border border-border rounded-2xl text-sm">
+      <div class="card p-4">
+        <p class="text-xs font-semibold text-gray-500">Omzet Bulan Ini</p>
+        <p class="text-xl font-black text-gray-800 mt-1" id="owOmzetBulan">Rp 0</p>
       </div>
-      <div id="piutangList" class="space-y-2"></div>
-      <div class="flex justify-between items-center pt-2">
-        <span id="pageInfoPiutang" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-        <div class="flex gap-2">
-          <button onclick="changePagePiutang(-1)" class="w-9 h-9 bg-white border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-            <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-          </button>
-          <button onclick="changePagePiutang(1)" class="w-9 h-9 bg-white border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-            <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-          </button>
-        </div>
+      <div class="card p-4">
+        <p class="text-xs font-semibold text-gray-500">Total Piutang</p>
+        <p class="text-xl font-black text-red-500 mt-1" id="owPiutang">Rp 0</p>
+      </div>
+      <div class="card p-4">
+        <p class="text-xs font-semibold text-gray-500">Estimasi Laba</p>
+        <p class="text-xl font-black text-green-600 mt-1" id="owLaba">Rp 0</p>
+      </div>
+    </div>
+    <div class="card p-4 mb-4">
+      <p class="text-sm font-bold text-gray-700 mb-2">Ringkasan</p>
+      <div class="flex justify-between text-sm py-1.5 border-b border-gray-100">
+        <span class="text-gray-500">Galon Terjual</span><b id="owGalon">0</b>
+      </div>
+      <div class="flex justify-between text-sm py-1.5 border-b border-gray-100">
+        <span class="text-gray-500">Penjualan Agen</span><b id="owAgen">Rp 0</b>
+      </div>
+      <div class="flex justify-between text-sm py-1.5 border-b border-gray-100">
+        <span class="text-gray-500">Total Pengeluaran</span><b id="owPengeluaran">Rp 0</b>
+      </div>
+      <div class="flex justify-between text-sm py-1.5">
+        <span class="text-gray-500">Komisi Belum Dibayar</span><b id="owKomisi" class="text-orange-500">Rp 0</b>
       </div>
     </div>
 
-    <!-- GALON -->
-    <div id="pageGalon" class="page hidden px-4 pt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Galon Agen</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">water_bottle</span>
+    <div class="grid grid-cols-2 gap-3">
+      <button onclick="navigate('view-owner-transaksi')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-list text-2xl text-blue-500 mb-1"></i>
+        <p class="font-bold text-sm">Transaksi</p>
+      </button>
+      <button onclick="navigate('view-owner-expenses')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-file-invoice-dollar text-2xl text-orange-500 mb-1"></i>
+        <p class="font-bold text-sm">Pengeluaran</p>
+      </button>
+      <button onclick="navigate('view-owner-piutang')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-hand-holding-usd text-2xl text-red-500 mb-1"></i>
+        <p class="font-bold text-sm">Piutang</p>
+      </button>
+      <button onclick="navigate('view-owner-komisi')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-coins text-2xl text-yellow-500 mb-1"></i>
+        <p class="font-bold text-sm">Komisi</p>
+      </button>
+      <button onclick="navigate('view-owner-agen')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-users text-2xl text-purple-500 mb-1"></i>
+        <p class="font-bold text-sm">Agen</p>
+      </button>
+      <button onclick="navigate('view-owner-produk')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-box text-2xl text-indigo-500 mb-1"></i>
+        <p class="font-bold text-sm">Produk</p>
+      </button>
+      <button onclick="navigate('view-owner-operator')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-user-cog text-2xl text-teal-500 mb-1"></i>
+        <p class="font-bold text-sm">Operator</p>
+      </button>
+      <button onclick="navigate('view-owner-rekonsiliasi')" class="card p-4 flex flex-col items-center active:scale-95 transition">
+        <i class="fas fa-balance-scale text-2xl text-green-500 mb-1"></i>
+        <p class="font-bold text-sm">Rekonsiliasi</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- TRANSAKSI -->
+  <section id="view-transaksi" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Transaksi Baru</h2>
+    </div>
+    <div class="card p-5">
+      <div class="flex bg-gray-100 p-1 rounded-xl mb-5">
+        <button id="tabKonsumen" onclick="setTxType('Konsumen')" class="flex-1 py-2 font-bold bg-white shadow rounded-lg text-lumo transition">Konsumen</button>
+        <button id="tabAgen" onclick="setTxType('Agen')" class="flex-1 py-2 font-bold text-gray-400 rounded-lg transition">Agen</button>
       </div>
 
-      <div class="bg-white rounded-2xl p-2 shadow-app border border-border">
-        <div class="grid grid-cols-2 gap-1 p-1 bg-surface rounded-xl">
-          <button id="btn-galon-tab-kembali" onclick="setGalonTab('kembali')" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label">
-            <span class="material-symbols-outlined text-[18px]">assignment_return</span>
-            Pengembalian
-          </button>
-          <button id="btn-galon-tab-tertahan" onclick="setGalonTab('tertahan')" class="py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label">
-            <span class="material-symbols-outlined text-[18px]">inventory_2</span>
-            Tertahan
-          </button>
+      <form id="txForm" onsubmit="submitTransaction(event)">
+        <div id="wrapAgen" class="mb-4 hidden">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Pilih Agen <span class="text-red-500">*</span></label>
+          <select id="txAgen" class="input-field" required></select>
         </div>
-      </div>
 
-      <div id="galonSectionKembali" class="hidden space-y-4">
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-          <div>
-            <h3 class="text-sm font-bold text-tertiary font-headline">Pengembalian Galon</h3>
-            <p class="text-[11px] text-on-surface-variant mt-0.5">Catat galon yang dikembalikan agen</p>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Produk <span class="text-red-500">*</span></label>
+          <select id="txProduk" class="input-field" onchange="calculateTotal()" required></select>
+        </div>
+
+        <div class="flex gap-3 mb-4">
+          <div class="w-1/3">
+            <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Jumlah</label>
+            <input type="number" id="txJumlah" min="1" value="1" class="input-field font-bold text-center text-lg" oninput="calculateTotal()" required>
           </div>
-          <select id="agenPengembalianKhusus" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" onchange="muatDataTertahanAgenKhusus(this.value)">
-            <option value="">Pilih Agen...</option>
-          </select>
-          <div id="tabelReturKhususOtomatis" class="space-y-2"></div>
-          <button type="button" onclick="submitPengembalianKhusus()" class="w-full bg-tertiary hover:bg-tertiary/90 text-white py-3 rounded-xl text-xs font-bold transition font-label active:scale-[0.98]">Simpan Pengembalian</button>
+          <div class="w-2/3">
+            <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Total (Rp)</label>
+            <input type="text" id="txTotal" class="input-field font-black text-right text-lg bg-gray-100 text-lumo" readonly>
+          </div>
         </div>
-      </div>
 
-      <div id="galonSectionTertahan" class="space-y-4">
-        <div class="bg-white rounded-2xl p-3 shadow-app border border-border">
-          <select id="filterAgenTertahan" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" onchange="pageState.stokTertahan=1; pageState.daftarBeli=1; pageState.logPengembalian=1; loadGalonTertahan(); loadDaftarBeliGalon(); loadLogPengembalian()">
-            <option value="">Semua Agen</option>
+        <div id="wrapPengiriman" class="mb-4 hidden">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Status Pengiriman</label>
+          <select id="txPengiriman" class="input-field" onchange="calculateTotal()">
+            <option value="Diambil Agen">Diambil Agen</option>
+            <option value="Diantar Operator">Diantar Operator</option>
           </select>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-primary text-[20px]">shopping_cart</span>
-              <h3 class="text-sm font-bold text-slate-900 font-headline">Daftar Galon Dibeli</h3>
-            </div>
-            <span id="countDaftarBeli" class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold font-label">0</span>
-          </div>
-          <div id="daftarBeliGalonTable" class="space-y-2"></div>
-          <div class="flex justify-between items-center pt-3">
-            <span id="pageInfoDaftarBeli" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-            <div class="flex gap-2">
-              <button onclick="changePageDaftarBeli(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button onclick="changePageDaftarBeli(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Metode Pembayaran <span class="text-red-500">*</span></label>
+          <select id="txPembayaran" class="input-field" onchange="toggleHutang()">
+            <option value="Lunas">Lunas</option>
+            <option value="Sebagian">Sebagian</option>
+            <option value="Hutang">Hutang</option>
+          </select>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <div class="flex items-center justify-between mb-3">
-            <div class="flex items-center gap-2">
-              <span class="material-symbols-outlined text-warning text-[20px]">inventory_2</span>
-              <h3 class="text-sm font-bold text-slate-900 font-headline">Galon Tertahan</h3>
-            </div>
-            <span id="countStokTertahan" class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold font-label">0</span>
-          </div>
-          <div id="stokAgenTable" class="space-y-2"></div>
-          <div class="flex justify-between items-center pt-3">
-            <span id="pageInfoStokTertahan" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-            <div class="flex gap-2">
-              <button onclick="changePageStokTertahan(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button onclick="changePageStokTertahan(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
+        <div id="wrapDibayar" class="mb-4 hidden">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Nominal Dibayar (Rp)</label>
+          <input type="number" id="txDibayar" class="input-field" oninput="calculateHutang()" placeholder="0">
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-bold text-slate-900 font-headline">Riwayat Pengembalian</h3>
-            <span id="countLogPengembalian" class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold font-label">0</span>
-          </div>
-          <div id="logPengembalianTable" class="space-y-2"></div>
-          <div class="flex justify-between items-center pt-3">
-            <span id="pageInfoLogPengembalian" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-            <div class="flex gap-2">
-              <button onclick="changePageLogPengembalian(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button onclick="changePageLogPengembalian(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
+        <div id="wrapCatatan" class="mb-4 hidden p-4 bg-red-50 border border-red-100 rounded-xl">
+          <p class="text-sm font-bold text-red-600 flex justify-between mb-2">
+            <span>Sisa Hutang:</span>
+            <span class="text-lg">Rp <span id="txSisa">0</span></span>
+          </p>
+          <input type="text" id="txCatatan" placeholder="Nama/Keterangan hutang (wajib)" class="input-field border-red-200">
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <div class="flex items-center justify-between mb-3">
-            <h3 class="text-sm font-bold text-slate-900 font-headline">Galon Rusak</h3>
-            <span id="countGalonRusak" class="text-[10px] bg-error-light text-error px-2 py-0.5 rounded-full font-bold font-label">0</span>
-          </div>
-          <div id="galonRusakOwnerTable" class="space-y-2"></div>
-          <div class="flex justify-between items-center pt-3">
-            <span id="pageInfoGalonRusak" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-            <div class="flex gap-2">
-              <button onclick="changePageGalonRusak(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-              </button>
-              <button onclick="changePageGalonRusak(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-                <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- KEUANGAN -->
-    <div id="pageKeuangan" class="page hidden px-4 pt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Keuangan</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">payments</span>
-      </div>
-      <div class="bg-gradient-to-br from-tertiary to-tertiary/80 rounded-2xl p-5 shadow-app text-white">
-        <p class="text-xs font-bold uppercase tracking-wider opacity-90 font-label">Saldo Kas</p>
-        <p class="text-3xl font-bold font-headline" id="saldoKas">Rp 0</p>
-        <div class="grid grid-cols-2 gap-3 mt-3">
-          <div class="bg-white/20 rounded-xl p-2.5">
-            <p class="text-[10px] opacity-90 font-label">Masuk</p>
-            <p class="text-sm font-bold font-headline mt-0.5" id="saldoMasuk">Rp 0</p>
-          </div>
-          <div class="bg-white/20 rounded-xl p-2.5">
-            <p class="text-[10px] opacity-90 font-label">Keluar</p>
-            <p class="text-sm font-bold font-headline mt-0.5" id="saldoKeluar">Rp 0</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-3 shadow-app border border-border space-y-2">
-        <div class="flex items-center gap-2">
-          <input type="date" id="filterKeuanganMulai" class="flex-1 px-3 py-2 bg-surface border border-border rounded-xl text-xs" onchange="loadKeuangan()">
-          <span class="text-xs text-on-surface-variant">s/d</span>
-          <input type="date" id="filterKeuanganSelesai" class="flex-1 px-3 py-2 bg-surface border border-border rounded-xl text-xs" onchange="loadKeuangan()">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="setKeuanganFilter('today')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">Hari Ini</button>
-          <button onclick="setKeuanganFilter('week')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">7 Hari</button>
-          <button onclick="setKeuanganFilter('month')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">Bulan Ini</button>
-          <button onclick="resetFilterKeuangan()" class="text-[10px] text-primary font-bold font-label">Reset</button>
-        </div>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-        <h3 class="text-sm font-bold text-slate-900 font-headline">Catat Keuangan</h3>
-        <select id="kasJenis" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm">
-          <option value="Pengeluaran">Pengeluaran</option>
-          <option value="Pemasukan" id="optPemasukan">Pemasukan</option>
-        </select>
-        <select id="kasKategori" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" required>
-          <option value="">Pilih Kategori...</option>
-          <option value="Transport">Transport</option>
-          <option value="Tutup Botol">Tutup Botol</option>
-          <option value="Tisue">Tisue</option>
-          <option value="Label Plastik">Label Plastik</option>
-          <option value="Air">Air</option>
-          <option value="Pajak">Pajak</option>
-          <option value="Cicilan">Cicilan</option>
-          <option value="Lainnya">Lainnya</option>
-        </select>
-        <input type="text" id="kasJumlahFormatted" required class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Jumlah (Rp)" oninput="formatRupiahInput(this, 'kasJumlah')">
-        <input type="hidden" id="kasJumlah">
-        <input type="text" id="kasKeterangan" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Keterangan...">
-        <button type="button" onclick="submitKeuangan()" id="submitKasBtn" class="w-full bg-primary hover:bg-primary-dark text-white py-3 rounded-xl text-xs font-bold transition font-label active:scale-[0.98]">Simpan</button>
-      </div>
-
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-bold text-slate-900 font-headline">Riwayat Arus Kas</h3>
-          <span id="countKeuangan" class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold font-label">0</span>
-        </div>
-        <div id="keuanganTable" class="space-y-2"></div>
-        <div class="flex justify-between items-center pt-3">
-          <span id="pageInfoKeuangan" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-          <div class="flex gap-2">
-            <button onclick="changePageKeuangan(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-              <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-            </button>
-            <button onclick="changePageKeuangan(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-              <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- KOMISI -->
-    <div id="pageKomisi" class="page hidden px-4 pt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Komisi</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">badge</span>
-      </div>
-      <div class="bg-gradient-to-br from-tertiary to-tertiary/80 rounded-2xl p-5 shadow-app text-white">
-        <p class="text-xs font-bold uppercase tracking-wider opacity-90 font-label">Total Komisi Belum Dibayar</p>
-        <p class="text-3xl font-bold font-headline mt-2" id="totalKomisiSaya">Rp 0</p>
-      </div>
-      <div id="ownerBayarBox" class="hidden bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-        <h3 class="text-sm font-bold text-slate-900 font-headline">Bayar Komisi Massal</h3>
-        <select id="bayarOperator" class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" onchange="hitungPreviewKomisi()"></select>
-        <div class="grid grid-cols-2 gap-2">
-          <input type="date" id="tglMulai" class="px-3 py-3 bg-surface border border-border rounded-xl text-xs" onchange="hitungPreviewKomisi()">
-          <input type="date" id="tglSelesai" class="px-3 py-3 bg-surface border border-border rounded-xl text-xs" onchange="hitungPreviewKomisi()">
-        </div>
-        <div class="bg-tertiary-light p-3 rounded-xl">
-          <p class="text-xs text-tertiary font-medium">Total Komisi</p>
-          <p class="text-lg font-bold text-tertiary font-headline" id="previewNominalKomisi">Rp 0</p>
-        </div>
-        <button onclick="prosesBayarKomisiMassal()" class="w-full bg-tertiary hover:bg-tertiary/90 text-white py-3 rounded-xl text-xs font-bold transition font-label active:scale-[0.98]">Bayar Komisi</button>
-      </div>
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-bold text-slate-900 font-headline">Daftar Komisi</h3>
-          <span id="countKomisi" class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold font-label">0</span>
-        </div>
-        <div id="komisiTable" class="space-y-2"></div>
-        <div class="flex justify-between items-center pt-3">
-          <span id="pageInfoKomisi" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-          <div class="flex gap-2">
-            <button onclick="changePageKomisi(-1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-              <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-            </button>
-            <button onclick="changePageKomisi(1)" class="w-9 h-9 bg-surface border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-              <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- KELOLA -->
-    <div id="pageKelola" class="page hidden px-4 pt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Kelola Data</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">settings</span>
-      </div>
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-        <h3 class="text-sm font-bold text-slate-900 font-headline">Manajemen Agen</h3>
-        <form id="addAgenForm" class="flex gap-2">
-          <input type="text" id="newAgenName" required class="flex-1 px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Nama agen baru...">
-          <button type="submit" class="bg-primary text-white px-5 py-3 rounded-xl text-xs font-bold font-label">Tambah</button>
-        </form>
-        <div id="agenListContainer" class="flex flex-wrap gap-2"></div>
-      </div>
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-        <h3 class="text-sm font-bold text-slate-900 font-headline">Master Harga</h3>
-        <div id="hargaListContainer" class="space-y-2"></div>
-      </div>
-      <div class="bg-white rounded-2xl p-4 shadow-app border border-border space-y-3">
-        <h3 class="text-sm font-bold text-slate-900 font-headline">Manajemen Operator</h3>
-        <form id="addUserForm" class="space-y-2">
-          <input type="text" id="newUsername" required class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Username">
-          <input type="password" id="newPassword" required class="w-full px-4 py-3 bg-surface border border-border rounded-xl text-sm" placeholder="Password">
-          <button type="submit" class="w-full bg-primary text-white py-3 rounded-xl text-xs font-bold font-label">Tambah Operator</button>
-        </form>
-        <div id="userTableBody" class="space-y-2"></div>
-      </div>
-    </div>
-
-    <!-- RIWAYAT -->
-    <div id="pageRiwayat" class="page hidden px-4 pt-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-lg font-bold text-slate-900 font-headline">Riwayat</h2>
-        <span class="material-symbols-outlined text-primary text-[22px]">history</span>
-      </div>
-      <div class="bg-white rounded-2xl p-3 shadow-app border border-border space-y-2">
-        <div class="flex items-center gap-2">
-          <input type="date" id="filterTglMulai" class="flex-1 px-3 py-2 bg-surface border border-border rounded-xl text-xs" onchange="pageState.riwayat=1; loadTransaksi();">
-          <span class="text-xs text-on-surface-variant">s/d</span>
-          <input type="date" id="filterTglSelesai" class="flex-1 px-3 py-2 bg-surface border border-border rounded-xl text-xs" onchange="pageState.riwayat=1; loadTransaksi();">
-        </div>
-        <div class="flex gap-2">
-          <button onclick="setQuickFilter('today')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">Hari Ini</button>
-          <button onclick="setQuickFilter('week')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">7 Hari</button>
-          <button onclick="setQuickFilter('month')" class="flex-1 text-[10px] py-1.5 bg-surface rounded-lg font-bold font-label">Bulan Ini</button>
-          <button onclick="resetFilterRiwayat()" class="text-[10px] text-primary font-bold font-label">Reset</button>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Total Penjualan</p>
-          <p class="text-xl font-bold text-slate-900 font-headline mt-1" id="sumPenjualan">Rp 0</p>
-        </div>
-        <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-          <p class="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider font-label">Galon Terjual</p>
-          <p class="text-xl font-bold text-primary font-headline mt-1" id="sumGalonTerjual">0</p>
-        </div>
-      </div>
-      <div id="dataTable" class="space-y-2"></div>
-      <div class="flex justify-between items-center pt-2">
-        <span id="pageInfoRiwayat" class="text-xs text-on-surface-variant font-medium">Hal 1/1</span>
-        <div class="flex gap-2">
-          <button onclick="changePageRiwayat(-1)" class="w-9 h-9 bg-white border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-            <span class="material-symbols-outlined text-[18px]">chevron_left</span>
-          </button>
-          <button onclick="changePageRiwayat(1)" class="w-9 h-9 bg-white border border-border rounded-xl flex items-center justify-center active:scale-90 transition">
-            <span class="material-symbols-outlined text-[18px]">chevron_right</span>
-          </button>
-        </div>
-      </div>
-    </div>
-
-  </main>
-
-  <!-- BOTTOM NAV -->
-  <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-border pb-safe shadow-nav">
-    <div class="grid grid-cols-5 items-center h-16 max-w-lg mx-auto px-1" id="bottomNav">
-      <button onclick="switchPage('transaksi')" data-page="transaksi" class="nav-item flex flex-col items-center justify-center h-full gap-0.5 text-on-surface-variant">
-        <div class="nav-icon w-9 h-9 rounded-xl flex items-center justify-center transition">
-          <span class="material-symbols-outlined text-[22px]">point_of_sale</span>
-        </div>
-        <span class="text-[9px] font-bold font-label">Kasir</span>
-      </button>
-      <button onclick="switchPage('piutang')" data-page="piutang" class="nav-item flex flex-col items-center justify-center h-full gap-0.5 text-on-surface-variant">
-        <div class="nav-icon w-9 h-9 rounded-xl flex items-center justify-center transition">
-          <span class="material-symbols-outlined text-[22px]">receipt_long</span>
-        </div>
-        <span class="text-[9px] font-bold font-label">Piutang</span>
-      </button>
-      <button onclick="switchPage('galon')" data-page="galon" class="nav-item flex flex-col items-center justify-center h-full gap-0.5 text-on-surface-variant">
-        <div class="nav-icon w-9 h-9 rounded-xl flex items-center justify-center transition">
-          <span class="material-symbols-outlined text-[22px]">water_bottle</span>
-        </div>
-        <span class="text-[9px] font-bold font-label">Galon</span>
-      </button>
-      <button onclick="switchPage('keuangan')" data-page="keuangan" class="nav-item flex flex-col items-center justify-center h-full gap-0.5 text-on-surface-variant">
-        <div class="nav-icon w-9 h-9 rounded-xl flex items-center justify-center transition">
-          <span class="material-symbols-outlined text-[22px]">payments</span>
-        </div>
-        <span class="text-[9px] font-bold font-label">Keuangan</span>
-      </button>
-      <button onclick="toggleMoreMenu()" data-page="more" class="nav-item flex flex-col items-center justify-center h-full gap-0.5 text-on-surface-variant">
-        <div class="nav-icon w-9 h-9 rounded-xl flex items-center justify-center transition">
-          <span class="material-symbols-outlined text-[22px]">more_horiz</span>
-        </div>
-        <span class="text-[9px] font-bold font-label">Lainnya</span>
-      </button>
-    </div>
-  </nav>
-
-  <!-- MORE MENU -->
-  <div id="moreMenuSheet" class="hidden fixed inset-0 z-[60]">
-    <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onclick="toggleMoreMenu()"></div>
-    <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-app-lg modal-content pb-safe">
-      <div class="w-10 h-1 bg-border rounded-full mx-auto mt-3 mb-4"></div>
-      <div class="px-5 pb-6 space-y-2">
-        <h3 class="text-sm font-bold text-slate-900 font-headline mb-3">Menu Lainnya</h3>
-        <button onclick="switchPage('dashboard'); toggleMoreMenu();" id="menuDashboardBtn" class="hidden w-full flex items-center gap-3 p-3.5 bg-surface rounded-2xl active:scale-[0.98] transition">
-          <div class="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-[22px]">dashboard</span>
-          </div>
-          <div class="text-left flex-1">
-            <p class="text-sm font-bold text-slate-900 font-label">Dashboard</p>
-          </div>
+        <button type="submit" class="w-full btn-primary py-3.5 rounded-xl font-bold text-lg mt-4 shadow-lg shadow-sky-200">
+          <i class="fas fa-check-circle mr-2"></i> SIMPAN TRANSAKSI
         </button>
-        <button onclick="switchPage('riwayat'); toggleMoreMenu();" class="w-full flex items-center gap-3 p-3.5 bg-surface rounded-2xl active:scale-[0.98] transition">
-          <div class="w-10 h-10 bg-primary-light rounded-xl flex items-center justify-center">
-            <span class="material-symbols-outlined text-primary text-[22px]">history</span>
-          </div>
-          <div class="text-left flex-1">
-            <p class="text-sm font-bold text-slate-900 font-label">Riwayat Penjualan</p>
-          </div>
-        </button>
-        <button onclick="switchPage('komisi'); toggleMoreMenu();" class="w-full flex items-center gap-3 p-3.5 bg-surface rounded-2xl active:scale-[0.98] transition">
-          <div class="w-10 h-10 bg-warning-light rounded-xl flex items-center justify-center">
-            <span class="material-symbols-outlined text-warning text-[22px]">badge</span>
-          </div>
-          <div class="text-left flex-1">
-            <p class="text-sm font-bold text-slate-900 font-label">Komisi Operator</p>
-          </div>
-        </button>
-        <button onclick="switchPage('kelola'); toggleMoreMenu();" id="menuKelolaBtn" class="hidden w-full flex items-center gap-3 p-3.5 bg-surface rounded-2xl active:scale-[0.98] transition">
-          <div class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center">
-            <span class="material-symbols-outlined text-slate-600 text-[22px]">settings</span>
-          </div>
-          <div class="text-left flex-1">
-            <p class="text-sm font-bold text-slate-900 font-label">Kelola Data</p>
-          </div>
-        </button>
-        <button onclick="logout()" class="w-full flex items-center gap-3 p-3.5 bg-error-light rounded-2xl active:scale-[0.98] transition mt-2">
-          <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center">
-            <span class="material-symbols-outlined text-error text-[22px]">logout</span>
-          </div>
-          <div class="text-left flex-1">
-            <p class="text-sm font-bold text-error font-label">Keluar</p>
-          </div>
-        </button>
-      </div>
+      </form>
     </div>
+  </section>
+
+  <!-- PENGELUARAN -->
+  <section id="view-pengeluaran" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Catat Pengeluaran</h2>
+    </div>
+    <div class="card p-5">
+      <div class="bg-orange-50 border border-orange-100 p-3 rounded-lg mb-4 text-sm text-orange-700 flex gap-2">
+        <i class="fas fa-info-circle mt-0.5"></i>
+        <p>Pengeluaran akan masuk status <strong>Menunggu Persetujuan Owner</strong>.</p>
+      </div>
+      <form id="expForm" onsubmit="submitPengeluaran(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Kategori</label>
+          <select id="expKategori" class="input-field" required>
+            <option value="">-- Pilih --</option>
+            <option>Bensin</option><option>Parkir</option><option>Kebersihan</option>
+            <option>Perbaikan</option><option>Keperluan Depot</option><option>Lainnya</option>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Nominal (Rp)</label>
+          <input type="number" id="expNominal" class="input-field font-bold text-lg text-right" placeholder="0" required min="1">
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Keterangan</label>
+          <textarea id="expKeterangan" rows="3" class="input-field" placeholder="Contoh: Bensin motor operasional" required></textarea>
+        </div>
+        <button type="submit" class="w-full bg-orange-500 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition">
+          SIMPAN PENGELUARAN
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- PENGANTARAN -->
+  <section id="view-pengantaran" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Pengantaran</h2>
+    </div>
+    <div id="deliveryList" class="space-y-3"></div>
+  </section>
+
+  <!-- KOMISI -->
+  <section id="view-komisi" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Komisi Saya</h2>
+    </div>
+    <div id="komisiSummary" class="card p-4 mb-4"></div>
+    <div id="komisiList" class="space-y-2"></div>
+  </section>
+
+  <!-- GALON RUSAK -->
+  <section id="view-galon-rusak" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Lapor Galon</h2>
+    </div>
+    <div class="card p-5">
+      <form onsubmit="submitGallonCondition(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Produk</label>
+          <select id="gcProduk" class="input-field" required></select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Jumlah</label>
+          <input type="number" id="gcJumlah" min="1" value="1" class="input-field" required>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Kondisi</label>
+          <select id="gcKondisi" class="input-field" required>
+            <option>Baik</option><option>Kotor</option><option>Rusak</option>
+            <option>Bocor</option><option>Pecah</option><option>Hilang</option>
+          </select>
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Catatan</label>
+          <input type="text" id="gcCatatan" class="input-field" placeholder="Keterangan tambahan">
+        </div>
+        <button type="submit" class="w-full bg-red-500 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition">
+          LAPOR KONDISI
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- GALON DARI AGEN -->
+  <section id="view-galon-agen" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Galon dari Agen</h2>
+    </div>
+    <div class="card p-5">
+      <form onsubmit="submitAgentReturn(event)">
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Pilih Agen</label>
+          <select id="arAgen" class="input-field" required></select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Produk</label>
+          <select id="arProduk" class="input-field" required></select>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Jumlah</label>
+          <input type="number" id="arJumlah" min="1" value="1" class="input-field" required>
+        </div>
+        <div class="mb-4">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Kondisi</label>
+          <select id="arKondisi" class="input-field" required>
+            <option>Baik</option><option>Kotor</option><option>Rusak</option>
+            <option>Bocor</option><option>Pecah</option>
+          </select>
+        </div>
+        <div class="mb-5">
+          <label class="block text-sm font-bold text-gray-700 mb-1 ml-1">Catatan</label>
+          <input type="text" id="arCatatan" class="input-field" placeholder="Keterangan">
+        </div>
+        <button type="submit" class="w-full bg-purple-500 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg active:scale-95 transition">
+          SIMPAN
+        </button>
+      </form>
+    </div>
+  </section>
+
+  <!-- OWNER: TRANSAKSI -->
+  <section id="view-owner-transaksi" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Semua Transaksi</h2>
+    </div>
+    <div id="ownerTxList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: PENGELUARAN -->
+  <section id="view-owner-expenses" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Pengeluaran</h2>
+    </div>
+    <div id="ownerExpList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: PIUTANG -->
+  <section id="view-owner-piutang" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Piutang</h2>
+    </div>
+    <div id="ownerReceivableList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: KOMISI -->
+  <section id="view-owner-komisi" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Komisi Operator</h2>
+    </div>
+    <div id="ownerCommissionList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: AGEN -->
+  <section id="view-owner-agen" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Manajemen Agen</h2>
+    </div>
+    <button onclick="openAgentForm()" class="w-full btn-primary py-3 rounded-xl font-bold mb-4">
+      <i class="fas fa-plus mr-2"></i> Tambah Agen
+    </button>
+    <div id="ownerAgentList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: PRODUK -->
+  <section id="view-owner-produk" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Master Produk</h2>
+    </div>
+    <div id="ownerProductList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: OPERATOR -->
+  <section id="view-owner-operator" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Manajemen Operator</h2>
+    </div>
+    <div id="ownerOperatorList" class="space-y-2"></div>
+  </section>
+
+  <!-- OWNER: REKONSILIASI -->
+  <section id="view-owner-rekonsiliasi" class="view-section">
+    <div class="flex items-center mb-4">
+      <button onclick="goBack()" class="btn-icon mr-3"><i class="fas fa-arrow-left"></i></button>
+      <h2 class="text-2xl font-black text-gray-800">Rekonsiliasi</h2>
+    </div>
+    <div id="reconciliationResult"></div>
+  </section>
+
+</main>
+
+<!-- BOTTOM NAV -->
+<nav id="bottomNav" class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 shadow-lg hidden z-40">
+  <div class="max-w-md mx-auto flex justify-between px-4 py-2">
+    <button onclick="navigate(role === 'Owner' ? 'view-owner' : 'view-operator')" class="nav-item active flex flex-col items-center gap-0.5 flex-1 py-1">
+      <i class="fas fa-home text-lg"></i><span class="text-[10px] font-bold">Beranda</span>
+    </button>
+    <button onclick="navigate('view-transaksi')" class="nav-item flex flex-col items-center gap-0.5 flex-1 py-1">
+      <i class="fas fa-plus-circle text-lg"></i><span class="text-[10px] font-bold">Transaksi</span>
+    </button>
+    <button onclick="navigate(role === 'Owner' ? 'view-owner-transaksi' : 'view-riwayat')" class="nav-item flex flex-col items-center gap-0.5 flex-1 py-1">
+      <i class="fas fa-history text-lg"></i><span class="text-[10px] font-bold">Riwayat</span>
+    </button>
+    <button onclick="logout()" class="nav-item text-red-400 flex flex-col items-center gap-0.5 flex-1 py-1">
+      <i class="fas fa-sign-out-alt text-lg"></i><span class="text-[10px] font-bold">Keluar</span>
+    </button>
   </div>
-</div>
+</nav>
 
 <script>
-// ============ KONFIGURASI ============
-// GANTI DENGAN URL WEB APP ANDA (yang berakhiran /exec)
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7Oo5_udErUob7gZN9Scfy9806AHRB-QZBicVskGDDkBhchWQyEso8DUM8LoEoPgpy/exec";
+// ============================================================================
+// KONFIGURASI - GANTI URL DI BAWAH INI
+// ============================================================================
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxxxxxxxxxxxxxxxxxxxxxxx/exec';
 
-// ============ STATE ============
-let loggedInUser = null, loggedInRole = null;
-let masterHargaList = [], agenList = [];
-let globalTransaksiData = [], globalKeuanganData = [];
-let globalGalonRusakData = [], globalGalonTertahan = [], globalLogPengembalianData = [];
-let activeTargetPiutang = null;
-let currentSegment = 'umum';
-let currentGalonTab = 'tertahan';
-let refreshTimer = null;
+// State
+let currentUser = null;
+let role = '';
+let masterProducts = [];
+let masterAgents = [];
+let txType = 'Konsumen';
+let navStack = [];
+let cache = {};
 
-const PAGE_SIZE = 10;
-let pageState = {
-  riwayat: 1, piutang: 1, stokTertahan: 1, logPengembalian: 1,
-  galonRusak: 1, keuangan: 1, komisi: 1, daftarBeli: 1
-};
-
-// ============ API (JSONP) ============
-function apiGet(action, payload) {
-  return new Promise((resolve, reject) => {
-    if (!SCRIPT_URL || SCRIPT_URL.indexOf('script.google.com') < 0) {
-      reject(new Error('SCRIPT_URL belum dikonfigurasi!')); return;
-    }
-    const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
-    const params = new URLSearchParams({
-      action: action,
-      payload: JSON.stringify(payload || {}),
-      callback: cb,
-      _t: Date.now()
-    });
-    const s = document.createElement('script');
-    const timer = setTimeout(() => { cleanup(); reject(new Error('Timeout 25s')); }, 25000);
-    function cleanup() {
-      clearTimeout(timer);
-      delete window[cb];
-      if (s.parentNode) s.parentNode.removeChild(s);
-    }
-    window[cb] = function(res) {
-      cleanup();
-      if (res && res.ok) resolve(res.data);
-      else reject(new Error((res && res.error) || 'Unknown error'));
-    };
-    s.onerror = function() { cleanup(); reject(new Error('Network error — cek deploy & URL')); };
-    s.src = SCRIPT_URL + '?' + params.toString();
-    document.body.appendChild(s);
-  });
-}
-
-async function apiPost(action, payload) {
-  if (!SCRIPT_URL || SCRIPT_URL.indexOf('script.google.com') < 0) {
-    throw new Error('SCRIPT_URL belum dikonfigurasi!');
-  }
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ action, payload })
-  });
-  const json = await res.json();
-  if (json && json.ok) return json.data;
-  throw new Error((json && json.error) || 'Unknown error');
-}
-
-// ============ CACHE ============
-const _cache = { products: null, agents: null, productsAt: 0, agentsAt: 0 };
-const CACHE_TTL = 30000;
-async function fetchProducts(force) {
-  if (!force && _cache.products && (Date.now() - _cache.productsAt) < CACHE_TTL) return _cache.products;
-  const list = await apiGet('getProducts', {});
-  _cache.products = list; _cache.productsAt = Date.now(); return list;
-}
-async function fetchAgents(force) {
-  if (!force && _cache.agents && (Date.now() - _cache.agentsAt) < CACHE_TTL) return _cache.agents;
-  const list = await apiGet('getAgents', {});
-  _cache.agents = list; _cache.agentsAt = Date.now(); return list;
-}
-function invalidateMaster() { _cache.products = null; _cache.agents = null; _cache.productsAt = 0; _cache.agentsAt = 0; }
-
-// ============ UTIL ============
-function showPopup(title, msg, isSuccess = true) {
-  document.getElementById("popupIcon").innerText = isSuccess ? "✅" : "❌";
-  document.getElementById("popupTitle").innerText = title;
-  document.getElementById("popupMessage").innerText = msg;
-  document.getElementById("popupModal").classList.remove("hidden");
-}
-function closePopup() { document.getElementById("popupModal").classList.add("hidden"); }
-function formatRupiah(num) { return 'Rp ' + Number(num || 0).toLocaleString('id-ID'); }
-function formatRupiahInput(inputEl, targetHiddenId) {
-  let val = inputEl.value.replace(/[^,\d]/g, '').toString();
-  let split = val.split(',');
-  let sisa = split[0].length % 3;
-  let rupiah = split[0].substr(0, sisa);
-  let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-  if (ribuan) {
-    let separator = sisa ? '.' : '';
-    rupiah += separator + ribuan.join('.');
-  }
-  rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
-  inputEl.value = rupiah;
-  const hidden = document.getElementById(targetHiddenId);
-  if (hidden) hidden.value = val.replace(/\./g, '');
-}
-function formatTanggal(dateStr) {
-  if (!dateStr) return '-';
-  let d = new Date(dateStr);
-  if (isNaN(d.getTime())) return '-';
-  let day = String(d.getDate()).padStart(2, '0');
-  let month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${day}-${month}-${d.getFullYear()}`;
-}
-function paginate(data, page, pageSize = PAGE_SIZE) {
-  let totalPages = Math.ceil(data.length / pageSize) || 1;
-  if (page > totalPages) page = totalPages;
-  if (page < 1) page = 1;
-  let start = (page - 1) * pageSize;
-  return { items: data.slice(start, start + pageSize), totalPages, currentPage: page, total: data.length };
-}
-function renderPaginationInfo(id, page, totalPages, totalItems) {
-  let el = document.getElementById(id);
-  if (el) el.innerText = `Hal ${page}/${totalPages} (${totalItems})`;
-}
-
-// ============ AUTH ============
-window.addEventListener("DOMContentLoaded", () => {
-  let u = localStorage.getItem("depot_user"), r = localStorage.getItem("depot_role");
-  if (u && r) { loggedInUser = u; loggedInRole = r; initAppSession(); }
-});
-
-document.getElementById("loginForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  let u = document.getElementById("username").value.trim();
-  let p = document.getElementById("password").value;
-  let btn = document.getElementById("loginBtn");
-  btn.innerText = "Memproses..."; btn.disabled = true;
+// ============================================================================
+// API CALL
+// ============================================================================
+async function api(action, payload = {}) {
+  showLoader(true);
   try {
-    const user = await apiGet('login', { username: u, password: p });
-    loggedInUser = user.Username;
-    loggedInRole = String(user.Role).toLowerCase();
-    localStorage.setItem("depot_user", loggedInUser);
-    localStorage.setItem("depot_role", loggedInRole);
-    initAppSession();
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, payload })
+    });
+    const data = await res.json();
+    showLoader(false);
+    return data;
   } catch (err) {
-    showPopup("Login Gagal", err.message, false);
-    btn.innerText = "Masuk Aplikasi"; btn.disabled = false;
+    showLoader(false);
+    toast('Koneksi error: ' + err.message, 'error');
+    return { success: false };
   }
-});
+}
 
-function initAppSession() {
-  document.getElementById("loginSection").classList.add("hidden");
-  document.getElementById("appSection").classList.remove("hidden");
-  document.getElementById("userNameDisplay").innerText = loggedInUser;
-  document.getElementById("userRoleBadge").innerText = loggedInRole;
-  document.getElementById("loginBtn").innerText = "Masuk Aplikasi";
-  document.getElementById("loginBtn").disabled = false;
+function showLoader(s) {
+  document.getElementById('loader').style.display = s ? 'flex' : 'none';
+}
 
-  if (loggedInRole === "owner") {
-    document.getElementById("menuKelolaBtn").classList.remove("hidden");
-    document.getElementById("menuDashboardBtn").classList.remove("hidden");
-    document.getElementById("ownerBayarBox").classList.remove("hidden");
-    switchPage('dashboard');
+function toast(msg, type = 'success') {
+  const colors = { success: '#10b981', error: '#ef4444', info: '#0ea5e9' };
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.style.background = colors[type] || colors.success;
+  el.innerHTML = `<i class="fas fa-${type === 'error' ? 'exclamation-circle' : 'check-circle'} mr-2"></i>${msg}`;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ============================================================================
+// NAVIGATION
+// ============================================================================
+function navigate(viewId, push = true) {
+  if (push) {
+    const current = document.querySelector('.view-section.active');
+    if (current && current.id !== viewId) navStack.push(current.id);
+  }
+  document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+  const target = document.getElementById(viewId);
+  if (target) target.classList.add('active');
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  if (viewId.includes('operator') || viewId.includes('owner') && !viewId.includes('transaksi') && !viewId.includes('expenses') && !viewId.includes('piutang') && !viewId.includes('komisi') && !viewId.includes('agen') && !viewId.includes('produk') && !viewId.includes('operator') && !viewId.includes('rekonsiliasi')) {
+    document.querySelectorAll('.nav-item')[0]?.classList.add('active');
+  }
+
+  window.scrollTo(0, 0);
+}
+
+function goBack() {
+  const prev = navStack.pop();
+  navigate(prev || (role === 'Owner' ? 'view-owner' : 'view-operator'), false);
+}
+
+// ============================================================================
+// AUTH
+// ============================================================================
+async function handleLogin(e) {
+  e.preventDefault();
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+
+  const res = await api('login', { username: u, password: p });
+  if (res.success) {
+    currentUser = res.user;
+    role = res.user.role;
+    document.getElementById('navUsername').innerText = currentUser.name;
+    document.getElementById('navRole').innerText = currentUser.role;
+    document.getElementById('topNav').classList.remove('hidden');
+    document.getElementById('bottomNav').classList.remove('hidden');
+
+    await loadMasterData();
+    if (role === 'Owner') {
+      await loadOwnerDashboard();
+      navigate('view-owner', false);
+    } else {
+      await loadOperatorDashboard();
+      navigate('view-operator', false);
+    }
+    toast('Selamat datang, ' + currentUser.name + '!');
   } else {
-    const opt = document.getElementById("optPemasukan");
-    if (opt) opt.remove();
-    setSegment('umum');
-    switchPage('transaksi');
+    toast(res.message || 'Login gagal', 'error');
   }
-  tambahBarisProduk();
-  refreshAllData();
-  if (refreshTimer) clearInterval(refreshTimer);
-  refreshTimer = setInterval(refreshAllData, 30000);
 }
 
 function logout() {
-  if (refreshTimer) clearInterval(refreshTimer);
-  localStorage.clear();
-  location.reload();
+  if (!confirm('Yakin ingin keluar?')) return;
+  currentUser = null; role = ''; cache = {}; navStack = [];
+  document.getElementById('topNav').classList.add('hidden');
+  document.getElementById('bottomNav').classList.add('hidden');
+  document.getElementById('loginForm').reset();
+  navigate('view-login', false);
 }
 
-async function refreshAllData() {
-  const tasks = [
-    loadMasterHarga(), loadAgen(), loadTransaksi(), loadKeuangan(),
-    loadGalonRusak(), loadUsers(), loadGalonTertahan(), loadLogPengembalian(),
-    loadPiutangAgen(), loadDaftarBeliGalon()
-  ];
-  await Promise.allSettled(tasks);
-  if (loggedInRole === 'owner') updateDashboard();
-}
+// ============================================================================
+// LOAD MASTER
+// ============================================================================
+async function loadMasterData() {
+  const res = await api('getProductsAndAgents');
+  if (!res.success) return;
+  masterProducts = res.products || [];
+  masterAgents = res.agents || [];
 
-// ============ NAVIGATION ============
-function switchPage(page) {
-  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-  const target = document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1));
-  if (target) target.classList.remove('hidden');
-  document.querySelectorAll('#bottomNav .nav-item').forEach(btn => {
-    if (btn.dataset.page === page) {
-      btn.classList.add('active');
-      btn.classList.remove('text-on-surface-variant');
-      btn.querySelector('.nav-icon').classList.add('bg-primary-light');
-    } else {
-      btn.classList.remove('active');
-      btn.classList.add('text-on-surface-variant');
-      btn.querySelector('.nav-icon').classList.remove('bg-primary-light');
-    }
+  // Populate produk
+  const prodHtml = masterProducts.map(p =>
+    `<option value="${p.Nama}" data-harga="${p.HargaKonsumen}" data-hargagen="${p.HargaAgen}">${p.Nama}</option>`
+  ).join('');
+  ['txProduk','gcProduk','arProduk'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = prodHtml;
   });
-  const subtitles = {
-    'dashboard': 'Dashboard Owner', 'transaksi': 'Kasir POS', 'piutang': 'Piutang & Bon',
-    'galon': 'Galon Agen', 'riwayat': 'Riwayat Penjualan', 'keuangan': 'Keuangan',
-    'komisi': 'Komisi Operator', 'kelola': 'Kelola Data'
+
+  // Populate agen
+  const agenHtml = masterAgents.map(a => `<option value="${a.Nama}">${a.Nama}</option>`).join('');
+  ['txAgen','arAgen'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = agenHtml;
+  });
+
+  calculateTotal();
+}
+
+// ============================================================================
+// OPERATOR DASHBOARD
+// ============================================================================
+async function loadOperatorDashboard() {
+  const res = await api('getDashboardData', { username: currentUser.name, name: currentUser.name });
+  if (!res.success) return;
+  const d = res.data;
+  document.getElementById('opGalon').innerText = d.galonTerjual;
+  document.getElementById('opKomisi').innerText = 'Rp ' + fmt(d.komisiHariIni);
+  document.getElementById('opOmzet').innerText = 'Rp ' + fmt(d.omzetHariIni);
+  document.getElementById('opBelumBayar').innerText = 'Rp ' + fmt(d.komisiBelumDibayar);
+}
+
+// ============================================================================
+// OWNER DASHBOARD
+// ============================================================================
+async function loadOwnerDashboard() {
+  const res = await api('getOwnerDashboard', {});
+  if (!res.success) return;
+  const d = res.data;
+  document.getElementById('owOmzetHari').innerText = 'Rp ' + fmt(d.omzetHariIni);
+  document.getElementById('owOmzetBulan').innerText = 'Rp ' + fmt(d.omzetBulanIni);
+  document.getElementById('owPiutang').innerText = 'Rp ' + fmt(d.totalPiutang);
+  document.getElementById('owLaba').innerText = 'Rp ' + fmt(d.estimasiLaba);
+  document.getElementById('owGalon').innerText = d.galonTerjual;
+  document.getElementById('owAgen').innerText = 'Rp ' + fmt(d.penjualanAgen);
+  document.getElementById('owPengeluaran').innerText = 'Rp ' + fmt(d.totalPengeluaran);
+  document.getElementById('owKomisi').innerText = 'Rp ' + fmt(d.totalKomisiBelumDibayar);
+}
+
+// ============================================================================
+// TRANSAKSI
+// ============================================================================
+function setTxType(type) {
+  txType = type;
+  const aktif = 'flex-1 py-2 font-bold bg-white shadow rounded-lg text-lumo transition';
+  const pasif = 'flex-1 py-2 font-bold text-gray-400 rounded-lg transition';
+  document.getElementById('tabKonsumen').className = type === 'Konsumen' ? aktif : pasif;
+  document.getElementById('tabAgen').className = type === 'Agen' ? aktif : pasif;
+  document.getElementById('wrapAgen').classList.toggle('hidden', type !== 'Agen');
+  document.getElementById('wrapPengiriman').classList.toggle('hidden', type !== 'Agen');
+  calculateTotal();
+}
+
+function calculateTotal() {
+  const qty = parseInt(document.getElementById('txJumlah').value) || 0;
+  const sel = document.getElementById('txProduk');
+  if (!sel || !sel.options[sel.selectedIndex]) return;
+  const attr = txType === 'Konsumen' ? 'data-harga' : 'data-hargagen';
+  const harga = parseInt(sel.options[sel.selectedIndex].getAttribute(attr)) || 0;
+  const total = qty * harga;
+  document.getElementById('txTotal').value = fmt(total);
+  calculateHutang();
+}
+
+function toggleHutang() {
+  const m = document.getElementById('txPembayaran').value;
+  document.getElementById('wrapDibayar').classList.toggle('hidden', m !== 'Sebagian');
+  document.getElementById('wrapCatatan').classList.toggle('hidden', m === 'Lunas');
+  const cat = document.getElementById('txCatatan');
+  cat.required = m !== 'Lunas';
+  calculateHutang();
+}
+
+function calculateHutang() {
+  const total = parseInt(document.getElementById('txTotal').value.replace(/\D/g, '')) || 0;
+  const m = document.getElementById('txPembayaran').value;
+  let sisa = 0;
+  if (m === 'Hutang') sisa = total;
+  else if (m === 'Sebagian') {
+    const bayar = parseInt(document.getElementById('txDibayar').value) || 0;
+    sisa = Math.max(0, total - bayar);
+  }
+  document.getElementById('txSisa').innerText = fmt(sisa);
+}
+
+async function submitTransaction(e) {
+  e.preventDefault();
+  const sel = document.getElementById('txProduk');
+  const attr = txType === 'Konsumen' ? 'data-harga' : 'data-hargagen';
+  const harga = parseInt(sel.options[sel.selectedIndex].getAttribute(attr)) || 0;
+  const m = document.getElementById('txPembayaran').value;
+  const total = parseInt(document.getElementById('txTotal').value.replace(/\D/g, '')) || 0;
+  const qty = parseInt(document.getElementById('txJumlah').value) || 0;
+
+  let sisa = 0;
+  if (m === 'Hutang') sisa = total;
+  else if (m === 'Sebagian') {
+    const bayar = parseInt(document.getElementById('txDibayar').value) || 0;
+    if (bayar > total) { toast('Nominal bayar melebihi total!', 'error'); return; }
+    sisa = total - bayar;
+  }
+
+  const payload = {
+    operator: currentUser.name,
+    jenisTransaksi: txType,
+    pelanggan: txType === 'Agen' ? document.getElementById('txAgen').value : (document.getElementById('txCatatan').value || 'Konsumen Umum'),
+    produk: sel.value,
+    jumlah: qty,
+    harga: harga,
+    total: total,
+    pembayaran: m,
+    hutang: sisa,
+    pengiriman: txType === 'Agen' ? document.getElementById('txPengiriman').value : '-',
+    catatan: document.getElementById('txCatatan')?.value || ''
   };
-  document.getElementById('headerSubtitle').innerText = subtitles[page] || 'Dashboard';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (page === 'komisi') loadKomisiData();
-  if (page === 'piutang') loadPiutangAgen();
-  if (page === 'keuangan') loadKeuangan();
-  if (page === 'riwayat') loadTransaksi();
-}
-function toggleMoreMenu() { document.getElementById('moreMenuSheet').classList.toggle('hidden'); }
 
-function setGalonTab(tab) {
-  currentGalonTab = tab;
-  const btnKembali = document.getElementById('btn-galon-tab-kembali');
-  const btnTertahan = document.getElementById('btn-galon-tab-tertahan');
-  const secKembali = document.getElementById('galonSectionKembali');
-  const secTertahan = document.getElementById('galonSectionTertahan');
-  if (tab === 'kembali') {
-    btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-    btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-    secKembali.classList.remove('hidden'); secTertahan.classList.add('hidden');
+  const res = await api('saveTransaction', payload);
+  if (res.success) {
+    toast('Transaksi berhasil: ' + res.txId);
+    document.getElementById('txForm').reset();
+    setTxType('Konsumen');
+    if (role === 'Operator') loadOperatorDashboard();
+    else loadOwnerDashboard();
   } else {
-    btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-    btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-    secTertahan.classList.remove('hidden'); secKembali.classList.add('hidden');
+    toast(res.message || 'Gagal simpan', 'error');
   }
 }
 
-// ============ DASHBOARD ============
-function updateDashboard() {
-  if (loggedInRole !== 'owner') return;
-  document.getElementById('dashboardLoading').classList.add('hidden');
-  document.getElementById('dashboardContent').classList.remove('hidden');
-  document.getElementById('dashGreeting').innerText = loggedInUser;
-
-  let now = new Date();
-  let today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  let todayOmzet = 0, todayGalon = 0, totalPiutang = 0, totalTertahan = 0, totalKomisi = 0;
-  globalTransaksiData.forEach(row => {
-    if (row.Status === 'BATAL') return;
-    let d = new Date(row.TanggalRaw);
-    let dTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    if (dTime === today) { todayOmzet += Number(row.Total || 0); todayGalon += Number(row.Jumlah || 0); }
-    if (Number(row.Hutang) > 0) totalPiutang += Number(row.Hutang);
-    const opLower = String(row.OperatorID || '').toLowerCase();
-    if (opLower === 'owner' || opLower === 'u1') return;
-    let rate = 0;
-    if (row.Tipe === 'KONSUMEN') rate = 2000;
-    else if (row.Tipe === 'AGEN') rate = (row.Catatan && row.Catatan.indexOf('DIANTAR_OPERATOR') >= 0) ? 1000 : 2000;
-    totalKomisi += rate * Number(row.Jumlah || 0);
-  });
-  globalGalonTertahan.forEach(row => { if (Number(row.JumlahTertahan) > 0) totalTertahan += Number(row.JumlahTertahan); });
-
-  document.getElementById('dashOmzet').innerText = formatRupiah(todayOmzet);
-  document.getElementById('dashGalon').innerText = todayGalon;
-  document.getElementById('dashPiutang').innerText = formatRupiah(totalPiutang);
-  document.getElementById('dashTertahan').innerText = totalTertahan;
-  document.getElementById('dashTotalKomisi').innerText = formatRupiah(totalKomisi);
-
-  let totalMasuk = 0, totalKeluar = 0;
-  globalKeuanganData.forEach(row => {
-    if (row.Jenis === 'Pemasukan') totalMasuk += Number(row.Nominal);
-    if (row.Jenis === 'Pengeluaran' && (row.Status === 'DISETUJUI' || !row.Status)) totalKeluar += Number(row.Nominal);
-  });
-  document.getElementById('dashSaldo').innerText = formatRupiah(totalMasuk - totalKeluar);
-  document.getElementById('dashTotalMasuk').innerText = formatRupiah(totalMasuk);
-  document.getElementById('dashTotalKeluar').innerText = formatRupiah(totalKeluar);
+// ============================================================================
+// PENGELUARAN
+// ============================================================================
+async function submitPengeluaran(e) {
+  e.preventDefault();
+  const payload = {
+    operator: currentUser.name,
+    kategori: document.getElementById('expKategori').value,
+    nominal: document.getElementById('expNominal').value,
+    keterangan: document.getElementById('expKeterangan').value
+  };
+  const res = await api('saveExpense', payload);
+  if (res.success) {
+    toast('Pengeluaran tercatat, menunggu approval');
+    document.getElementById('expForm').reset();
+    goBack();
+  } else toast(res.message, 'error');
 }
 
-// ============ SEGMENT & PRODUK ============
-function setSegment(type) {
-  currentSegment = type;
-  const btnUmum = document.getElementById('btn-segment-umum');
-  const btnAgen = document.getElementById('btn-segment-agen');
-  const agenCard = document.getElementById('agen-info-card');
-  if (type === 'agen') {
-    btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-    btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-    agenCard.classList.remove('hidden');
-  } else {
-    btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-    btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-    agenCard.classList.add('hidden');
+// ============================================================================
+// GALON
+// ============================================================================
+async function submitGallonCondition(e) {
+  e.preventDefault();
+  const payload = {
+    operator: currentUser.name,
+    produk: document.getElementById('gcProduk').value,
+    jumlah: document.getElementById('gcJumlah').value,
+    kondisi: document.getElementById('gcKondisi').value,
+    catatan: document.getElementById('gcCatatan').value
+  };
+  const res = await api('saveGallonCondition', payload);
+  if (res.success) {
+    toast('Laporan tersimpan');
+    e.target.reset();
+    goBack();
+  } else toast(res.message, 'error');
+}
+
+async function submitAgentReturn(e) {
+  e.preventDefault();
+  const payload = {
+    operator: currentUser.name,
+    agen: document.getElementById('arAgen').value,
+    produk: document.getElementById('arProduk').value,
+    jumlah: document.getElementById('arJumlah').value,
+    kondisi: document.getElementById('arKondisi').value,
+    catatan: document.getElementById('arCatatan').value
+  };
+  const res = await api('saveAgentReturn', payload);
+  if (res.success) {
+    toast('Galon dari agen tersimpan');
+    e.target.reset();
+    goBack();
+  } else toast(res.message, 'error');
+}
+
+// ============================================================================
+// DELIVERY
+// ============================================================================
+async function loadDeliveries() {
+  const res = await api('getDeliveries', { operator: currentUser.name });
+  const container = document.getElementById('deliveryList');
+  if (!res.success || !res.deliveries.length) {
+    container.innerHTML = `<div class="card p-6 text-center text-gray-400"><i class="fas fa-inbox text-3xl mb-2"></i><p>Belum ada pengantaran</p></div>`;
+    return;
   }
-  updateDropdownProdukSemuaBaris();
-}
-
-function updateAgenData(agenKey) {
-  let tertahan = 0, bon = 0;
-  globalGalonTertahan.forEach(t => { if (String(t.AgenID) === String(agenKey)) tertahan += Number(t.JumlahTertahan); });
-  globalTransaksiData.forEach(t => { if (String(t.AgenID) === String(agenKey) && Number(t.Hutang) > 0 && t.Status !== 'BATAL') bon += Number(t.Hutang); });
-  document.getElementById('agen-galon-tertahan').innerText = tertahan;
-  document.getElementById('agen-sisa-bon').innerText = formatRupiah(bon);
-}
-
-function updateDropdownProdukSemuaBaris() {
-  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-    let select = row.querySelector(".produk-jenis");
-    if (select) isiDropdownProduk(select, select.value);
-  });
-}
-
-function isiDropdownProduk(selectElement, selectedValue = "") {
-  let target = (currentSegment === "agen") ? "agen" : "konsumen";
-  selectElement.innerHTML = '<option value="">Pilih Produk...</option>';
-  (masterHargaList || []).forEach(item => {
-    const harga = target === 'agen' ? item.HargaAgen : item.HargaKonsumen;
-    const sel = (String(item.ID) === String(selectedValue)) ? "selected" : "";
-    selectElement.innerHTML += `<option value="${item.ID}" data-harga="${harga}" data-hk="${item.HargaKonsumen}" data-ha="${item.HargaAgen}" ${sel}>${item.Nama} - Rp ${Number(harga).toLocaleString()}</option>`;
-  });
-  hitungTotalMultiProduk();
-}
-
-function tambahBarisProduk(produkIDDefault = "", jumlahDefault = 1) {
-  let container = document.getElementById("listProdukContainer");
-  let div = document.createElement("div");
-  div.className = "bg-white rounded-2xl p-3 shadow-app border border-border space-y-2";
-  div.innerHTML = `
-    <div class="flex items-start gap-2">
-      <div class="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center shrink-0 mt-0.5">
-        <span class="material-symbols-outlined text-[20px] text-primary">water_bottle_large</span>
+  container.innerHTML = res.deliveries.map(d => `
+    <div class="card p-4">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <p class="font-bold text-gray-800">${d.Agen}</p>
+          <p class="text-xs text-gray-500">${d.Tanggal} • ${d.Jumlah} galon</p>
+        </div>
+        <span class="text-xs font-bold px-2 py-1 rounded-full ${d.Status === 'Selesai' ? 'bg-green-100 text-green-700' : d.Status === 'Menunggu' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-700'}">${d.Status}</span>
       </div>
-      <div class="flex-1 min-w-0">
-        <select class="w-full px-3 py-3 bg-surface border border-border rounded-xl text-xs font-bold text-slate-900 produk-jenis font-label" onchange="hitungTotalMultiProduk()" required></select>
-      </div>
-      <button type="button" onclick="this.closest('.bg-white').remove(); hitungTotalMultiProduk();" class="w-9 h-9 rounded-xl bg-error-light text-error flex items-center justify-center shrink-0 mt-0.5 active:scale-90 transition">
-        <span class="material-symbols-outlined text-[18px]">close</span>
-      </button>
+      ${d.Status !== 'Selesai' ? `
+        <button onclick="markDeliveryDone('${d.ID}')" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold text-sm mt-2">
+          <i class="fas fa-check mr-1"></i> Tandai Selesai
+        </button>
+      ` : `<p class="text-xs text-green-600 mt-2"><i class="fas fa-check-circle mr-1"></i>Selesai ${d.WaktuSelesai || ''}</p>`}
     </div>
-    <div class="flex items-center justify-between gap-2 bg-surface p-2 rounded-xl">
-      <span class="text-[10px] font-bold text-on-surface-variant font-label uppercase">Jumlah</span>
-      <input type="number" min="1" value="${jumlahDefault}" inputmode="numeric" class="w-24 px-3 py-2 bg-white border border-border rounded-lg text-base font-bold text-slate-900 text-center produk-jumlah" oninput="hitungTotalMultiProduk()">
+  `).join('');
+}
+
+async function markDeliveryDone(id) {
+  const res = await api('updateDeliveryStatus', { id, status: 'Selesai', operator: currentUser.name });
+  if (res.success) { toast('Pengantaran selesai'); loadDeliveries(); }
+  else toast(res.message, 'error');
+}
+
+// ============================================================================
+// KOMISI
+// ============================================================================
+async function loadCommissions() {
+  const res = await api('getCommissions', { operator: currentUser.name });
+  if (!res.success) return;
+  const c = res.commissions || [];
+  const belum = c.filter(x => x.Status === 'Belum Dibayar').reduce((s, x) => s + (parseInt(x.Komisi) || 0), 0);
+  const sudah = c.filter(x => x.Status === 'Sudah Dibayar').reduce((s, x) => s + (parseInt(x.Komisi) || 0), 0);
+  document.getElementById('komisiSummary').innerHTML = `
+    <div class="grid grid-cols-2 gap-3">
+      <div><p class="text-xs text-gray-500">Belum Dibayar</p><p class="text-xl font-black text-orange-500">Rp ${fmt(belum)}</p></div>
+      <div><p class="text-xs text-gray-500">Sudah Dibayar</p><p class="text-xl font-black text-green-600">Rp ${fmt(sudah)}</p></div>
+    </div>`;
+  document.getElementById('komisiList').innerHTML = c.slice(0, 50).map(x => `
+    <div class="card p-3 flex justify-between items-center">
+      <div>
+        <p class="text-sm font-semibold">${x.Tanggal}</p>
+        <p class="text-xs text-gray-500">${x.TxID}</p>
+      </div>
+      <div class="text-right">
+        <p class="font-bold text-gray-800">Rp ${fmt(x.Komisi)}</p>
+        <p class="text-xs ${x.Status === 'Sudah Dibayar' ? 'text-green-600' : 'text-orange-500'}">${x.Status}</p>
+      </div>
+    </div>
+  `).join('') || '<div class="card p-6 text-center text-gray-400">Belum ada komisi</div>';
+}
+
+// ============================================================================
+// OWNER: TRANSAKSI
+// ============================================================================
+async function loadOwnerTransactions() {
+  const res = await api('getTransactions', { limit: 200 });
+  if (!res.success) return;
+  const el = document.getElementById('ownerTxList');
+  if (!res.transactions.length) {
+    el.innerHTML = '<div class="card p-6 text-center text-gray-400">Belum ada transaksi</div>';
+    return;
+  }
+  el.innerHTML = res.transactions.map(t => `
+    <div class="card p-3">
+      <div class="flex justify-between items-start">
+        <div class="flex-1">
+          <p class="font-bold text-sm text-gray-800">${t.Pelanggan}</p>
+          <p class="text-xs text-gray-500">${t.Tanggal} ${t.Jam} • ${t.User}</p>
+          <p class="text-xs text-gray-500">${t.Produk} × ${t.Jumlah}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-bold text-gray-800">Rp ${fmt(t.Total)}</p>
+          <span class="text-xs px-1.5 py-0.5 rounded ${t.Pembayaran === 'Lunas' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${t.Pembayaran}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================================
+// OWNER: EXPENSES
+// ============================================================================
+async function loadOwnerExpenses() {
+  const res = await api('getExpenses', {});
+  if (!res.success) return;
+  const el = document.getElementById('ownerExpList');
+  if (!res.expenses.length) {
+    el.innerHTML = '<div class="card p-6 text-center text-gray-400">Belum ada pengeluaran</div>';
+    return;
+  }
+  el.innerHTML = res.expenses.map(x => `
+    <div class="card p-3">
+      <div class="flex justify-between items-start mb-2">
+        <div>
+          <p class="font-bold text-sm">${x.Kategori} - Rp ${fmt(x.Nominal)}</p>
+          <p class="text-xs text-gray-500">${x.Tanggal} • ${x.Operator}</p>
+          <p class="text-xs text-gray-600 mt-1">${x.Keterangan}</p>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full font-bold ${x.Status === 'Disetujui' ? 'bg-green-100 text-green-700' : x.Status === 'Ditolak' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}">${x.Status}</span>
+      </div>
+      ${x.Status === 'Menunggu Persetujuan' ? `
+        <div class="flex gap-2">
+          <button onclick="approveExp('${x.ID}')" class="flex-1 bg-green-500 text-white py-1.5 rounded-lg text-sm font-bold">Setujui</button>
+          <button onclick="rejectExp('${x.ID}')" class="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-sm font-bold">Tolak</button>
+        </div>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+async function approveExp(id) {
+  const res = await api('approveExpense', { id, operator: currentUser.name });
+  if (res.success) { toast('Disetujui'); loadOwnerExpenses(); }
+}
+async function rejectExp(id) {
+  const res = await api('rejectExpense', { id, operator: currentUser.name });
+  if (res.success) { toast('Ditolak'); loadOwnerExpenses(); }
+}
+
+// ============================================================================
+// OWNER: PIUTANG
+// ============================================================================
+async function loadOwnerReceivables() {
+  const res = await api('getReceivables', {});
+  if (!res.success) return;
+  const el = document.getElementById('ownerReceivableList');
+  if (!res.receivables.length) {
+    el.innerHTML = '<div class="card p-6 text-center text-gray-400">Tidak ada piutang</div>';
+    return;
+  }
+  el.innerHTML = res.receivables.map(r => `
+    <div class="card p-3">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-bold text-sm">${r.Pelanggan}</p>
+          <p class="text-xs text-gray-500">${r.Tanggal} • ${r.Jenis}</p>
+          <p class="text-xs text-gray-600 mt-1">${r.Catatan || '-'}</p>
+        </div>
+        <div class="text-right">
+          <p class="text-xs text-gray-500">Sisa</p>
+          <p class="font-bold text-red-500">Rp ${fmt(r.SisaHutang)}</p>
+          <span class="text-xs ${r.Status === 'Lunas' ? 'text-green-600' : 'text-orange-500'}">${r.Status}</span>
+        </div>
+      </div>
+      ${r.Status !== 'Lunas' ? `
+        <button onclick="bayarPiutang('${r.ID}', ${r.SisaHutang})" class="w-full mt-2 bg-blue-500 text-white py-1.5 rounded-lg text-sm font-bold">Bayar</button>
+      ` : ''}
+    </div>
+  `).join('');
+}
+
+async function bayarPiutang(id, sisa) {
+  const input = prompt(`Sisa hutang: Rp ${fmt(sisa)}\nMasukkan nominal pembayaran:`);
+  if (!input) return;
+  const bayar = parseInt(input);
+  if (!bayar || bayar <= 0) { toast('Nominal tidak valid', 'error'); return; }
+  const res = await api('payReceivable', { id, bayar, operator: currentUser.name });
+  if (res.success) { toast('Pembayaran tercatat. Sisa: Rp ' + fmt(res.sisa)); loadOwnerReceivables(); }
+  else toast(res.message, 'error');
+}
+
+// ============================================================================
+// OWNER: KOMISI
+// ============================================================================
+async function loadOwnerCommissions() {
+  const res = await api('getCommissions', {});
+  if (!res.success) return;
+  const el = document.getElementById('ownerCommissionList');
+  const belum = res.commissions.filter(c => c.Status === 'Belum Dibayar');
+  const sudah = res.commissions.filter(c => c.Status === 'Sudah Dibayar');
+
+  el.innerHTML = `
+    <div class="card p-4 mb-3">
+      <p class="text-xs text-gray-500">Total Belum Dibayar</p>
+      <p class="text-2xl font-black text-orange-500">Rp ${fmt(belum.reduce((s,c)=>s+(parseInt(c.Komisi)||0),0))}</p>
+      <p class="text-xs text-gray-500 mt-2">Total Sudah Dibayar</p>
+      <p class="text-xl font-black text-green-600">Rp ${fmt(sudah.reduce((s,c)=>s+(parseInt(c.Komisi)||0),0))}</p>
+    </div>
+    ${belum.length ? `<button onclick="bayarSemuaKomisi()" class="w-full btn-primary py-3 rounded-xl font-bold mb-3">Bayar Semua Komisi</button>` : ''}
+    ${res.commissions.map(c => `
+      <div class="card p-3 flex justify-between items-center">
+        <div>
+          <p class="font-semibold text-sm">${c.User}</p>
+          <p class="text-xs text-gray-500">${c.Tanggal} • ${c.TxID}</p>
+        </div>
+        <div class="text-right">
+          <p class="font-bold">Rp ${fmt(c.Komisi)}</p>
+          <p class="text-xs ${c.Status === 'Sudah Dibayar' ? 'text-green-600' : 'text-orange-500'}">${c.Status}</p>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function bayarSemuaKomisi() {
+  if (!confirm('Bayar semua komisi yang belum dibayar?')) return;
+  const res = await api('getCommissions', {});
+  const ids = res.commissions.filter(c => c.Status === 'Belum Dibayar').map(c => c.ID);
+  if (!ids.length) return toast('Tidak ada komisi', 'info');
+  const r2 = await api('payCommission', { ids, operator: currentUser.name });
+  if (r2.success) { toast('Komisi dibayar'); loadOwnerCommissions(); }
+}
+
+// ============================================================================
+// OWNER: AGEN
+// ============================================================================
+async function loadOwnerAgents() {
+  const res = await api('getAgents');
+  if (!res.success) return;
+  const el = document.getElementById('ownerAgentList');
+  el.innerHTML = res.agents.map(a => `
+    <div class="card p-3">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-bold text-sm">${a.Nama}</p>
+          <p class="text-xs text-gray-500"><i class="fas fa-phone mr-1"></i>${a.NoHP}</p>
+          <p class="text-xs text-gray-500"><i class="fas fa-map-marker-alt mr-1"></i>${a.Alamat}</p>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full ${a.Status === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${a.Status}</span>
+      </div>
+      <div class="flex gap-2 mt-2">
+        <button onclick='openAgentForm(${JSON.stringify(a).replace(/'/g,"&#39;")})' class="flex-1 bg-blue-500 text-white py-1.5 rounded-lg text-xs font-bold">Edit</button>
+        <button onclick="deleteAgent('${a.ID}')" class="flex-1 bg-red-500 text-white py-1.5 rounded-lg text-xs font-bold">Hapus</button>
+      </div>
+    </div>
+  `).join('') || '<div class="card p-6 text-center text-gray-400">Belum ada agen</div>';
+}
+
+function openAgentForm(agent = null) {
+  const nama = prompt('Nama Agen:', agent?.Nama || '');
+  if (nama === null) return;
+  const hp = prompt('No HP:', agent?.NoHP || '');
+  if (hp === null) return;
+  const alamat = prompt('Alamat:', agent?.Alamat || '');
+  if (alamat === null) return;
+
+  api('saveAgent', {
+    id: agent?.ID || '',
+    nama, noHP: hp, alamat,
+    status: 'Aktif', catatan: '',
+    operator: currentUser.name
+  }).then(r => {
+    if (r.success) { toast('Tersimpan'); loadOwnerAgents(); }
+    else toast(r.message, 'error');
+  });
+}
+
+async function deleteAgent(id) {
+  if (!confirm('Hapus agen ini?')) return;
+  const res = await api('deleteAgent', { id, operator: currentUser.name });
+  if (res.success) { toast('Terhapus'); loadOwnerAgents(); }
+}
+
+// ============================================================================
+// OWNER: PRODUK
+// ============================================================================
+async function loadOwnerProducts() {
+  const res = await api('getProductsAndAgents');
+  if (!res.success) return;
+  const allRes = await api('getProductsAndAgents');
+  const el = document.getElementById('ownerProductList');
+  // Ambil semua produk termasuk nonaktif via getSheetData tidak tersedia, pakai products aktif + nonaktif
+  // Untuk simplicity tampilkan aktif
+  const products = res.products;
+  el.innerHTML = products.map(p => `
+    <div class="card p-3">
+      <p class="font-bold text-sm">${p.Nama}</p>
+      <div class="grid grid-cols-2 gap-2 mt-1 text-xs">
+        <div><span class="text-gray-500">Harga Konsumen:</span> <b>Rp ${fmt(p.HargaKonsumen)}</b></div>
+        <div><span class="text-gray-500">Harga Agen:</span> <b>Rp ${fmt(p.HargaAgen)}</b></div>
+      </div>
+      <span class="text-xs inline-block mt-1 px-2 py-0.5 rounded-full bg-green-100 text-green-700">${p.Status}</span>
+    </div>
+  `).join('') || '<div class="card p-6 text-center text-gray-400">Belum ada produk</div>';
+}
+
+// ============================================================================
+// OWNER: OPERATOR
+// ============================================================================
+async function loadOwnerOperators() {
+  const res = await api('getOperators');
+  if (!res.success) return;
+  const el = document.getElementById('ownerOperatorList');
+  el.innerHTML = res.operators.map(o => `
+    <div class="card p-3">
+      <div class="flex justify-between items-start">
+        <div>
+          <p class="font-bold text-sm">${o.Nama}</p>
+          <p class="text-xs text-gray-500">@${o.Username}</p>
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full ${o.Status === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}">${o.Status}</span>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-2 text-xs text-center">
+        <div class="bg-blue-50 p-2 rounded"><p class="text-gray-500">Trx</p><p class="font-bold text-blue-600">${o.totalTransaksi}</p></div>
+        <div class="bg-purple-50 p-2 rounded"><p class="text-gray-500">Galon</p><p class="font-bold text-purple-600">${o.totalGalon}</p></div>
+        <div class="bg-green-50 p-2 rounded"><p class="text-gray-500">Komisi</p><p class="font-bold text-green-600">Rp ${fmt(o.totalKomisi)}</p></div>
+      </div>
+    </div>
+  `).join('') || '<div class="card p-6 text-center text-gray-400">Belum ada operator</div>';
+}
+
+// ============================================================================
+// OWNER: REKONSILIASI
+// ============================================================================
+async function loadReconciliation() {
+  const res = await api('getReconciliation', {});
+  if (!res.success) return;
+  const d = res.data;
+  const color = d.status === 'SESUAI' ? 'green' : d.status === 'PERLU DIPERIKSA' ? 'yellow' : 'red';
+  document.getElementById('reconciliationResult').innerHTML = `
+    <div class="card p-5 mb-3">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-12 h-12 bg-${color}-100 text-${color}-600 rounded-full flex items-center justify-center">
+          <i class="fas fa-${d.status === 'SESUAI' ? 'check-circle' : 'exclamation-triangle'} text-xl"></i>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500">Status</p>
+          <p class="font-black text-lg text-${color}-600">${d.status}</p>
+        </div>
+      </div>
+      <div class="space-y-2 text-sm">
+        <div class="flex justify-between py-2 border-b"><span class="text-gray-500">Total Galon Terjual</span><b>${d.totalTerjual}</b></div>
+        <div class="flex justify-between py-2 border-b"><span class="text-gray-500">Galon Rusak</span><b class="text-red-500">${d.totalRusak}</b></div>
+        <div class="flex justify-between py-2 border-b"><span class="text-gray-500">Galon Kembali dari Agen</span><b class="text-purple-500">${d.totalKembali}</b></div>
+        <div class="flex justify-between py-2"><span class="text-gray-500">Selisih</span><b class="${d.selisih === 0 ? 'text-green-600' : 'text-red-600'}">${d.selisih}</b></div>
+      </div>
     </div>
   `;
-  container.appendChild(div);
-  isiDropdownProduk(div.querySelector(".produk-jenis"), produkIDDefault);
 }
 
-function hitungTotalMultiProduk() {
-  let total = 0, items = [];
-  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-    let select = row.querySelector(".produk-jenis");
-    let jumlahInput = row.querySelector(".produk-jumlah");
-    let opt = select.options[select.selectedIndex];
-    if (opt && opt.dataset.harga && select.value) {
-      let qty = Number(jumlahInput.value) || 0;
-      total += Number(opt.dataset.harga) * qty;
-      if (qty > 0) items.push({ jenis: select.options[select.selectedIndex].text.split(' - ')[0], qty, harga: Number(opt.dataset.harga) });
-    }
-  });
-  document.getElementById("total").value = total;
-  document.getElementById("totalDisplay").innerText = formatRupiah(total);
-  let listContainer = document.getElementById('rincianTransaksiList');
-  let totalItems = 0;
-  if (items.length === 0) {
-    listContainer.innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
-  } else {
-    listContainer.innerHTML = items.map(item => {
-      totalItems += item.qty;
-      return `<div class="flex justify-between"><span>${item.qty}x ${item.jenis}</span><span class="font-bold">${formatRupiah(item.harga * item.qty)}</span></div>`;
-    }).join('');
+// ============================================================================
+// UTIL FORMAT
+// ============================================================================
+function fmt(n) {
+  return (parseInt(n) || 0).toLocaleString('id-ID');
+}
+
+// ============================================================================
+// HOOK NAVIGATE UNTUK LOAD DATA
+// ============================================================================
+const _origNavigate = navigate;
+navigate = function(viewId, push = true) {
+  _origNavigate(viewId, push);
+  // Lazy load data sesuai view
+  if (viewId === 'view-pengantaran') loadDeliveries();
+  if (viewId === 'view-komisi') loadCommissions();
+  if (viewId === 'view-owner-transaksi') loadOwnerTransactions();
+  if (viewId === 'view-owner-expenses') loadOwnerExpenses();
+  if (viewId === 'view-owner-piutang') loadOwnerReceivables();
+  if (viewId === 'view-owner-komisi') loadOwnerCommissions();
+  if (viewId === 'view-owner-agen') loadOwnerAgents();
+  if (viewId === 'view-owner-produk') loadOwnerProducts();
+  if (viewId === 'view-owner-operator') loadOwnerOperators();
+  if (viewId === 'view-owner-rekonsiliasi') loadReconciliation();
+};
+
+// Auto ping saat buka
+window.addEventListener('load', async () => {
+  try {
+    await fetch(GAS_URL, { method: 'POST', headers: {'Content-Type':'text/plain'}, body: JSON.stringify({action:'ping'}) });
+    console.log('✅ LUMO API ready');
+  } catch (e) {
+    console.warn('API not ready yet');
   }
-  document.getElementById('badge-total-item').innerText = totalItems + ' ITEM';
-}
-
-function togglePenghutangField() {
-  let s = document.getElementById("status").value;
-  let c = document.getElementById("penghutangContainer");
-  let input = document.getElementById("penghutang");
-  if (s === "Bon / Utang") {
-    if (currentSegment === 'agen') { c.classList.add("hidden"); input.value = ""; }
-    else { c.classList.remove("hidden"); setTimeout(() => input.focus(), 100); }
-  } else { c.classList.add("hidden"); input.value = ""; }
-}
-
-// ============ SUBMIT TRANSAKSI ============
-async function submitTransaction() {
-  let btn = document.getElementById("submitBtn");
-  let listProduk = [];
-  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-    let select = row.querySelector(".produk-jenis");
-    let jumlahInput = row.querySelector(".produk-jumlah");
-    let opt = select.options[select.selectedIndex];
-    if (select.value && Number(jumlahInput.value) > 0) {
-      listProduk.push({
-        ProdukID: select.value,
-        Jumlah: Number(jumlahInput.value),
-        Harga: Number(opt.dataset.harga)
-      });
-    }
-  });
-  if (listProduk.length === 0) { showPopup("Peringatan", "Tambahkan minimal 1 produk!", false); return; }
-
-  let namaAgenValue = "";
-  if (currentSegment === 'agen') {
-    namaAgenValue = document.getElementById("namaAgen").value;
-    if (!namaAgenValue) { showPopup("Peringatan", "Pilih agen terlebih dahulu!", false); return; }
-  }
-
-  const isHutang = document.getElementById("status").value === 'Bon / Utang';
-  const metode = isHutang ? 'HUTANG' : 'LUNAS';
-
-  btn.disabled = true; btn.innerText = "Menyimpan...";
-  try {
-    for (const item of listProduk) {
-      await apiPost('createSale', {
-        Tipe: currentSegment === 'agen' ? 'AGEN' : 'KONSUMEN',
-        ProdukID: item.ProdukID,
-        Jumlah: item.Jumlah,
-        Harga: item.Harga,
-        MetodeBayar: metode,
-        Dibayar: 0,
-        Catatan: currentSegment === 'agen' ? namaAgenValue : document.getElementById("penghutang").value,
-        OperatorID: loggedInUser,
-        AgenID: namaAgenValue || ''
-      });
-    }
-    showPopup("Sukses", "Transaksi berhasil disimpan!");
-    document.getElementById("listProdukContainer").innerHTML = "";
-    tambahBarisProduk();
-    document.getElementById("total").value = 0;
-    document.getElementById("totalDisplay").innerText = "Rp 0";
-    document.getElementById('rincianTransaksiList').innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
-    document.getElementById('badge-total-item').innerText = '0 ITEM';
-    document.getElementById("penghutang").value = "";
-    document.getElementById("status").value = "Lunas";
-    togglePenghutangField();
-    invalidateMaster();
-    setTimeout(refreshAllData, 800);
-  } catch (err) {
-    showPopup("Error", err.message, false);
-  } finally {
-    btn.disabled = false; btn.innerText = "Simpan Transaksi";
-  }
-}
-
-async function submitKeuangan() {
-  let btn = document.getElementById("submitKasBtn");
-  let jumlah = document.getElementById("kasJumlah").value;
-  if (!jumlah || jumlah === '0') { showPopup("Peringatan", "Masukkan jumlah!", false); return; }
-  let kategori = document.getElementById("kasKategori").value;
-  if (!kategori) { showPopup("Peringatan", "Pilih kategori!", false); return; }
-
-  btn.disabled = true; btn.innerText = "Menyimpan...";
-  try {
-    const jenis = (loggedInRole === 'owner' && document.getElementById("kasJenis")) ? document.getElementById("kasJenis").value : "Pengeluaran";
-    await apiPost('saveKeuangan', {
-      Jenis: jenis, Kategori: kategori, Nominal: jumlah,
-      Keterangan: document.getElementById("kasKeterangan").value,
-      OperatorID: loggedInUser
-    });
-    showPopup("Sukses", "Catatan keuangan disimpan!");
-    document.getElementById("kasJumlahFormatted").value = "";
-    document.getElementById("kasJumlah").value = "";
-    document.getElementById("kasKeterangan").value = "";
-    document.getElementById("kasKategori").value = "";
-    setTimeout(loadKeuangan, 600);
-  } catch (err) {
-    showPopup("Error", err.message, false);
-  } finally {
-    btn.disabled = false; btn.innerText = "Simpan";
-  }
-}
-
-// ============ LOAD DATA ============
-async function loadMasterHarga() {
-  try {
-    masterHargaList = await fetchProducts(true);
-    if (document.getElementById("listProdukContainer").children.length === 0) tambahBarisProduk();
-    let hargaContainer = document.getElementById("hargaListContainer");
-    if (hargaContainer && loggedInRole === 'owner') {
-      hargaContainer.innerHTML = "";
-      masterHargaList.forEach(i => {
-        hargaContainer.innerHTML += `
-          <div class="flex items-center justify-between p-3 bg-surface rounded-xl text-xs">
-            <div class="flex-1 min-w-0">
-              <p class="font-bold text-slate-900">${i.Nama}</p>
-              <p class="text-[10px] text-on-surface-variant">Konsumen: ${formatRupiah(i.HargaKonsumen)} • Agen: ${formatRupiah(i.HargaAgen)}</p>
-            </div>
-            <button onclick="editHargaProduk('${i.ID}')" class="bg-tertiary text-white px-3 py-1.5 rounded-lg text-xs font-bold">Edit</button>
-          </div>`;
-      });
-    }
-  } catch (e) { console.error('loadMasterHarga', e); }
-}
-
-async function editHargaProduk(id) {
-  const p = masterHargaList.find(x => String(x.ID) === String(id));
-  if (!p) return;
-  const hk = prompt('Harga Konsumen untuk ' + p.Nama, p.HargaKonsumen);
-  if (hk === null) return;
-  const ha = prompt('Harga Agen untuk ' + p.Nama, p.HargaAgen);
-  if (ha === null) return;
-  try {
-    await apiPost('saveProduct', {
-      ID: p.ID, Nama: p.Nama, Jenis: p.Jenis,
-      HargaKonsumen: hk, HargaAgen: ha,
-      KomisiJual: p.KomisiJual, KomisiAntar: p.KomisiAntar,
-      Status: p.Status, UserID: loggedInUser
-    });
-    invalidateMaster();
-    showPopup("Sukses", "Harga diperbarui!");
-    loadMasterHarga();
-  } catch (e) { showPopup("Error", e.message, false); }
-}
-
-async function loadAgen() {
-  try {
-    agenList = await fetchAgents(true);
-    let select = document.getElementById("namaAgen");
-    let selectKhusus = document.getElementById("agenPengembalianKhusus");
-    let filterTertahan = document.getElementById("filterAgenTertahan");
-    if (select) select.innerHTML = '<option value="">Pilih Agen...</option>';
-    if (selectKhusus) selectKhusus.innerHTML = '<option value="">Pilih Agen...</option>';
-    if (filterTertahan) filterTertahan.innerHTML = '<option value="">Semua Agen</option>';
-    agenList.forEach(a => {
-      if (select) select.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
-      if (selectKhusus) selectKhusus.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
-      if (filterTertahan) filterTertahan.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
-    });
-    let container = document.getElementById("agenListContainer");
-    if (container && loggedInRole === 'owner') {
-      container.innerHTML = "";
-      agenList.forEach(a => container.innerHTML += `<div class="inline-flex items-center bg-surface px-3 py-1.5 rounded-xl text-xs gap-2"><span class="font-bold">${a.Nama}</span><button onclick="hapusAgen('${a.ID}')" class="text-error"><span class="material-symbols-outlined text-[14px]">close</span></button></div>`);
-    }
-  } catch (e) { console.error('loadAgen', e); }
-}
-
-document.getElementById("addAgenForm")?.addEventListener("submit", async e => {
-  e.preventDefault();
-  let n = document.getElementById("newAgenName").value;
-  try {
-    await apiPost('saveAgent', { Nama: n, Status: 'Aktif', UserID: loggedInUser });
-    document.getElementById("newAgenName").value = "";
-    invalidateMaster();
-    loadAgen();
-    showPopup("Sukses", "Agen ditambahkan.");
-  } catch (e) { showPopup("Error", e.message, false); }
-});
-
-async function hapusAgen(id) {
-  if (!confirm('Nonaktifkan agen ini?')) return;
-  try {
-    const a = agenList.find(x => String(x.ID) === String(id));
-    if (a) {
-      await apiPost('saveAgent', { ...a, Status: 'Nonaktif', UserID: loggedInUser });
-      invalidateMaster(); loadAgen();
-      showPopup("Sukses", "Agen dinonaktifkan.");
-    }
-  } catch (e) { showPopup("Error", e.message, false); }
-}
-
-async function loadUsers() {
-  try {
-    const data = await apiGet('getOperators', {});
-    let tbody = document.getElementById("userTableBody");
-    let selectBayar = document.getElementById("bayarOperator");
-    if (tbody) tbody.innerHTML = "";
-    if (selectBayar) selectBayar.innerHTML = "";
-    data.forEach(u => {
-      if (u.Role !== 'OPERATOR') return;
-      if (tbody) tbody.innerHTML += `<div class="flex items-center justify-between p-3 bg-surface rounded-xl"><span class="text-xs font-bold">${u.Username}</span><button onclick="hapusUser('${u.ID}')" class="text-error text-xs font-bold">Hapus</button></div>`;
-      if (selectBayar) selectBayar.innerHTML += `<option value="${u.ID}">${u.Username}</option>`;
-    });
-    hitungPreviewKomisi();
-  } catch (e) { console.error('loadUsers', e); }
-}
-
-document.getElementById("addUserForm")?.addEventListener("submit", async e => {
-  e.preventDefault();
-  let u = document.getElementById("newUsername").value, p = document.getElementById("newPassword").value;
-  try {
-    await apiPost('saveOperator', { Nama: u, Username: u, Password: p, Status: 'Aktif', UserID: loggedInUser });
-    document.getElementById("addUserForm").reset();
-    loadUsers();
-    showPopup("Sukses", "Operator ditambahkan.");
-  } catch (e) { showPopup("Error", e.message, false); }
-});
-
-async function hapusUser(id) {
-  if (!confirm('Nonaktifkan operator ini?')) return;
-  try {
-    const users = await apiGet('getOperators', {});
-    const u = users.find(x => String(x.ID) === String(id));
-    if (u) {
-      await apiPost('saveOperator', { ID: u.ID, Nama: u.Nama, Username: u.Username, Status: 'Nonaktif', UserID: loggedInUser });
-      loadUsers();
-      showPopup("Sukses", "Operator dinonaktifkan.");
-    }
-  } catch (e) { showPopup("Error", e.message, false); }
-}
-
-// ============ PIUTANG ============
-async function loadPiutangAgen() {
-  try {
-    const data = await apiGet('listReceivables', {});
-    let container = document.getElementById("piutangList");
-    if (!container) return;
-    let query = (document.getElementById("searchPiutang").value || "").toLowerCase();
-    let filtered = data.filter(row => !query || (row.Penghutang || '').toLowerCase().includes(query));
-    let paginated = paginate(filtered, pageState.piutang);
-    pageState.piutang = paginated.currentPage;
-    renderPaginationInfo('pageInfoPiutang', paginated.currentPage, paginated.totalPages, paginated.total);
-    container.innerHTML = "";
-    if (paginated.items.length === 0) {
-      container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada data piutang</div>';
-    } else {
-      paginated.items.forEach(row => {
-        const rowJson = JSON.stringify(row).replace(/'/g, "&#39;").replace(/"/g, '&quot;');
-        container.innerHTML += `
-          <div class="bg-white rounded-2xl p-4 shadow-app border border-border card-tap" onclick='bukaModalPelunasan(${rowJson})'>
-            <div class="flex items-start justify-between mb-2">
-              <div class="flex-1 min-w-0">
-                <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.Penghutang || '-'}</p>
-                <p class="text-[11px] text-on-surface-variant">${row.Tanggal}</p>
-              </div>
-              <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold font-label">BON</span>
-            </div>
-            <div class="flex items-center justify-between pt-2 border-t border-border">
-              <div><p class="text-[10px] text-on-surface-variant">Tagihan</p><p class="font-bold text-error font-headline">${formatRupiah(row.Sisa)}</p></div>
-              <div class="text-right"><p class="text-[10px] text-on-surface-variant">Tipe</p><p class="font-bold text-slate-900 font-headline">${row.Tipe}</p></div>
-            </div>
-          </div>`;
-      });
-    }
-  } catch (e) { console.error('loadPiutangAgen', e); }
-}
-function changePagePiutang(dir) { pageState.piutang = Math.max(1, pageState.piutang + dir); loadPiutangAgen(); }
-
-function bukaModalPelunasan(row) {
-  activeTargetPiutang = row.ID;
-  document.getElementById("infoDetailPiutang").innerHTML = `
-    <div class="grid grid-cols-2 gap-2">
-      <div><p class="text-[10px] opacity-70">Nama</p><p class="font-bold text-slate-900">${row.Penghutang || '-'}</p></div>
-      <div><p class="text-[10px] opacity-70">Waktu</p><p class="font-bold text-slate-900">${row.Tanggal}</p></div>
-      <div class="col-span-2"><p class="text-[10px] opacity-70">Total Tagihan</p><p class="font-bold text-error text-base font-headline">${formatRupiah(row.Sisa)}</p></div>
-    </div>`;
-  document.getElementById("nominalPelunasan").value = "";
-  document.getElementById("nominalPelunasanVal").value = "0";
-  document.getElementById("modalPelunasan").classList.remove("hidden");
-}
-
-async function prosesLunasPiutangFinal() {
-  if (!activeTargetPiutang) return;
-  const nominal = Number(document.getElementById("nominalPelunasanVal").value || 0);
-  try {
-    await apiPost('addPayment', {
-      TrxID: activeTargetPiutang,
-      Nominal: nominal,
-      Metode: 'TUNAI',
-      UserID: loggedInUser
-    });
-    document.getElementById("modalPelunasan").classList.add("hidden");
-    showPopup("Sukses", "Piutang dilunasi!");
-    refreshAllData();
-  } catch (e) { showPopup("Gagal", e.message, false); }
-}
-
-// ============ GALON TERTAHAN ============
-function muatDataTertahanAgenKhusus(agenId) {
-  let container = document.getElementById("tabelReturKhususOtomatis");
-  container.innerHTML = "";
-  if (!agenId) { container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>'; return; }
-  let ada = false;
-  globalGalonTertahan.forEach(t => {
-    if (String(t.AgenID) === String(agenId) && Number(t.JumlahTertahan) > 0) {
-      ada = true;
-      container.innerHTML += `
-        <div class="item-retur-khusus-row bg-surface rounded-xl p-3 space-y-2" data-produkid="${t.ProdukID}" data-jenis="${t.Jenis}" data-max="${t.JumlahTertahan}">
-          <div class="flex justify-between items-center">
-            <span class="text-xs font-bold text-slate-900">${t.Jenis || t.ProdukID}</span>
-            <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">${t.JumlahTertahan} GLN</span>
-          </div>
-          <div class="grid grid-cols-2 gap-2">
-            <input type="number" min="0" max="${t.JumlahTertahan}" value="0" class="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold text-center input-jml-kembali-khusus">
-            <select class="px-3 py-2 bg-white border border-border rounded-lg text-xs select-kondisi-khusus">
-              <option value="Baik">Baik</option><option value="Pecah">Pecah</option>
-            </select>
-          </div>
-        </div>`;
-    }
-  });
-  if (!ada) container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon tertahan</p>';
-}
-
-async function submitPengembalianKhusus() {
-  let agenId = document.getElementById("agenPengembalianKhusus").value;
-  if (!agenId) { showPopup("Peringatan", "Pilih agen!", false); return; }
-  let rows = document.querySelectorAll(".item-retur-khusus-row");
-  let any = false;
-  for (const r of rows) {
-    const produkID = r.dataset.produkid;
-    const jml = Number(r.querySelector(".input-jml-kembali-khusus").value);
-    const kondisi = r.querySelector(".select-kondisi-khusus").value;
-    if (jml > 0) {
-      any = true;
-      try {
-        await apiPost('agentGallonReturn', {
-          AgenID: agenId, ProdukID: produkID,
-          Baik: kondisi === 'Baik' ? jml : 0,
-          Pecah: kondisi === 'Pecah' ? jml : 0,
-          OperatorID: loggedInUser
-        });
-      } catch (e) { showPopup("Error", e.message, false); return; }
-    }
-  }
-  if (!any) { showPopup("Peringatan", "Masukkan jumlah galon!", false); return; }
-  showPopup("Sukses", "Pengembalian dicatat!");
-  document.getElementById("agenPengembalianKhusus").value = "";
-  document.getElementById("tabelReturKhususOtomatis").innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>';
-  refreshAllData();
-}
-
-async function loadGalonTertahan() {
-  try {
-    const filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
-    let list = await apiGet('listGalonTertahan', {});
-    globalGalonTertahan = list || [];
-    if (filterAgen) list = list.filter(t => String(t.AgenID) === String(filterAgen));
-    let container = document.getElementById("stokAgenTable");
-    let paginated = paginate(list, pageState.stokTertahan);
-    pageState.stokTertahan = paginated.currentPage;
-    renderPaginationInfo('pageInfoStokTertahan', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countStokTertahan').innerText = paginated.total;
-    if (!container) return;
-    container.innerHTML = "";
-    if (paginated.items.length === 0) {
-      container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon tertahan</p>';
-      return;
-    }
-    paginated.items.forEach(t => {
-      container.innerHTML += `
-        <div class="p-3 bg-surface rounded-xl">
-          <div class="flex justify-between items-start mb-1.5">
-            <div class="min-w-0 flex-1">
-              <p class="text-xs font-bold text-slate-900 truncate">${t.NamaAgen || t.AgenID}</p>
-              <p class="text-[10px] text-on-surface-variant">${t.Jenis || t.ProdukID}</p>
-            </div>
-            <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold shrink-0">${t.JumlahTertahan} GLN</span>
-          </div>
-          <p class="text-[10px] text-on-surface-variant">Update: ${t.UpdateTerakhir || '-'}</p>
-        </div>`;
-    });
-  } catch (e) { console.error('loadGalonTertahan', e); }
-}
-function changePageStokTertahan(dir) { pageState.stokTertahan = Math.max(1, pageState.stokTertahan + dir); loadGalonTertahan(); }
-
-async function loadDaftarBeliGalon() {
-  try {
-    const data = await apiGet('listTransactions', {});
-    let filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
-    let list = data.filter(r => r.Tipe === 'AGEN' && r.Status !== 'BATAL' && (!filterAgen || String(r.AgenID) === String(filterAgen)));
-    let container = document.getElementById("daftarBeliGalonTable");
-    let paginated = paginate(list, pageState.daftarBeli);
-    pageState.daftarBeli = paginated.currentPage;
-    renderPaginationInfo('pageInfoDaftarBeli', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countDaftarBeli').innerText = paginated.total;
-    if (container) {
-      container.innerHTML = "";
-      if (paginated.items.length === 0) {
-        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada data</p>';
-      } else {
-        paginated.items.forEach(row => {
-          container.innerHTML += `
-            <div class="p-3 bg-surface rounded-xl">
-              <div class="flex justify-between items-start mb-1.5">
-                <p class="text-xs font-bold text-slate-900">${row.AgenID || '-'}</p>
-                <span class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold">${row.Tipe}</span>
-              </div>
-              <div class="grid grid-cols-3 gap-2 text-center">
-                <div class="bg-white rounded-lg p-1.5"><p class="text-[9px] text-on-surface-variant">Galon</p><p class="text-sm font-bold">${row.Jumlah}</p></div>
-                <div class="bg-warning-light rounded-lg p-1.5"><p class="text-[9px] text-warning">Hutang</p><p class="text-sm font-bold text-warning">${formatRupiah(row.Hutang)}</p></div>
-                <div class="bg-tertiary-light rounded-lg p-1.5"><p class="text-[9px] text-tertiary">Total</p><p class="text-sm font-bold text-tertiary">${formatRupiah(row.Total)}</p></div>
-              </div>
-            </div>`;
-        });
-      }
-    }
-  } catch (e) { console.error('loadDaftarBeliGalon', e); }
-}
-function changePageDaftarBeli(dir) { pageState.daftarBeli = Math.max(1, pageState.daftarBeli + dir); loadDaftarBeliGalon(); }
-
-async function loadLogPengembalian() {
-  try {
-    const filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
-    let list = await apiGet('listLogPengembalian', filterAgen ? { agenId: filterAgen } : {});
-    globalLogPengembalianData = list || [];
-    let container = document.getElementById("logPengembalianTable");
-    let paginated = paginate(list, pageState.logPengembalian);
-    pageState.logPengembalian = paginated.currentPage;
-    renderPaginationInfo('pageInfoLogPengembalian', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countLogPengembalian').innerText = paginated.total;
-    if (!container) return;
-    container.innerHTML = "";
-    if (paginated.items.length === 0) {
-      container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada riwayat</p>';
-      return;
-    }
-    paginated.items.forEach(row => {
-      container.innerHTML += `
-        <div class="p-3 bg-surface rounded-xl">
-          <div class="flex justify-between items-start mb-1">
-            <p class="text-xs font-bold text-slate-900">${row.AgenID}</p>
-            <span class="text-[10px] text-on-surface-variant">${row.Tanggal}</span>
-          </div>
-          <div class="flex justify-between text-[11px]">
-            <span class="text-on-surface-variant">${row.Kondisi}</span>
-            <span class="font-bold text-tertiary">+${row.Jumlah} galon</span>
-          </div>
-        </div>`;
-    });
-  } catch (e) { console.error('loadLogPengembalian', e); }
-}
-function changePageLogPengembalian(dir) { pageState.logPengembalian = Math.max(1, pageState.logPengembalian + dir); loadLogPengembalian(); }
-
-// ============ RIWAYAT ============
-function checkDateFilter(rawTime) {
-  let tM = document.getElementById("filterTglMulai")?.value;
-  let tS = document.getElementById("filterTglSelesai")?.value;
-  if (!tM && !tS) return true;
-  let d = Number(rawTime);
-  if (tM && d < new Date(tM).getTime()) return false;
-  if (tS && d > new Date(tS).setHours(23,59,59,999)) return false;
-  return true;
-}
-function setQuickFilter(type) {
-  let now = new Date(), start, end;
-  if (type === 'today') { start = end = now.toISOString().split('T')[0]; }
-  else if (type === 'week') { let d = new Date(now); d.setDate(d.getDate() - 7); start = d.toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
-  else if (type === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
-  document.getElementById("filterTglMulai").value = start;
-  document.getElementById("filterTglSelesai").value = end;
-  pageState.riwayat = 1; loadTransaksi();
-}
-function resetFilterRiwayat() {
-  document.getElementById("filterTglMulai").value = "";
-  document.getElementById("filterTglSelesai").value = "";
-  pageState.riwayat = 1; loadTransaksi();
-}
-
-async function loadTransaksi() {
-  try {
-    globalTransaksiData = await apiGet('listTransactions', {});
-    let container = document.getElementById("dataTable");
-    let totJual = 0, totalGalon = 0;
-    let filtered = globalTransaksiData.filter(row => checkDateFilter(row.TanggalRaw));
-    filtered.forEach(row => { if (row.Status !== 'BATAL') { totJual += Number(row.Total || 0); totalGalon += Number(row.Jumlah || 0); } });
-    let paginated = paginate(filtered, pageState.riwayat);
-    pageState.riwayat = paginated.currentPage;
-    renderPaginationInfo('pageInfoRiwayat', paginated.currentPage, paginated.totalPages, paginated.total);
-    if (container) {
-      container.innerHTML = "";
-      if (paginated.items.length === 0) {
-        container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Belum ada transaksi</div>';
-      } else {
-        paginated.items.forEach(row => {
-          let isMyData = (loggedInRole === 'owner' || row.OperatorID === loggedInUser);
-          if (!isMyData) return;
-          let statusBadge = row.Status === 'BATAL'
-            ? '<span class="text-[10px] bg-error-light text-error px-2 py-0.5 rounded-full font-bold">BATAL</span>'
-            : (Number(row.Hutang) > 0
-              ? '<span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">BON</span>'
-              : '<span class="text-[10px] bg-tertiary-light text-tertiary px-2 py-0.5 rounded-full font-bold">LUNAS</span>');
-          container.innerHTML += `
-            <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-              <div class="flex items-start justify-between mb-2">
-                <div class="flex-1 min-w-0">
-                  <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.AgenID || '-'}</p>
-                  <p class="text-[11px] text-on-surface-variant">${row.Tanggal} • ${row.OperatorID}</p>
-                </div>
-                ${statusBadge}
-              </div>
-              <p class="text-[11px] text-on-surface-variant mb-2 truncate">${row.Tipe}</p>
-              <div class="flex justify-between items-center pt-2 border-t border-border">
-                <span class="text-xs text-on-surface-variant">${row.Jumlah} galon</span>
-                <span class="font-bold text-slate-900 font-headline">${formatRupiah(row.Total)}</span>
-              </div>
-            </div>`;
-        });
-      }
-    }
-    document.getElementById("sumPenjualan").innerText = formatRupiah(totJual);
-    document.getElementById("sumGalonTerjual").innerText = totalGalon;
-  } catch (e) { console.error('loadTransaksi', e); }
-}
-function changePageRiwayat(dir) { pageState.riwayat = Math.max(1, pageState.riwayat + dir); loadTransaksi(); }
-
-// ============ KEUANGAN ============
-function setKeuanganFilter(type) {
-  let now = new Date(), start, end;
-  if (type === 'today') { start = end = now.toISOString().split('T')[0]; }
-  else if (type === 'week') { let d = new Date(now); d.setDate(d.getDate() - 7); start = d.toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
-  else if (type === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
-  document.getElementById("filterKeuanganMulai").value = start;
-  document.getElementById("filterKeuanganSelesai").value = end;
-  pageState.keuangan = 1; loadKeuangan();
-}
-function resetFilterKeuangan() {
-  document.getElementById("filterKeuanganMulai").value = "";
-  document.getElementById("filterKeuanganSelesai").value = "";
-  pageState.keuangan = 1; loadKeuangan();
-}
-
-async function loadKeuangan() {
-  try {
-    globalKeuanganData = await apiGet('listExpenses', {});
-    let totalMasuk = 0, totalKeluar = 0;
-    globalKeuanganData.forEach(row => {
-      if (row.Jenis === 'Pemasukan') totalMasuk += Number(row.Nominal);
-      if (row.Jenis === 'Pengeluaran' && (row.Status === 'DISETUJUI' || !row.Status)) totalKeluar += Number(row.Nominal);
-    });
-    let tM = document.getElementById("filterKeuanganMulai")?.value;
-    let tS = document.getElementById("filterKeuanganSelesai")?.value;
-    let filtered = globalKeuanganData.filter(row => {
-      if (!tM && !tS) return true;
-      let d = Number(row.TanggalRaw || 0);
-      if (tM && d < new Date(tM).getTime()) return false;
-      if (tS && d > new Date(tS).setHours(23,59,59,999)) return false;
-      return true;
-    });
-    let totPeng = 0, totMasuk = 0;
-    filtered.forEach(row => {
-      if (row.Jenis === 'Pemasukan') totMasuk += Number(row.Nominal);
-      else totPeng += Number(row.Nominal);
-    });
-    document.getElementById("saldoKas").innerText = formatRupiah(totalMasuk - totalKeluar);
-    document.getElementById("saldoMasuk").innerText = formatRupiah(totalMasuk);
-    document.getElementById("saldoKeluar").innerText = formatRupiah(totalKeluar);
-    document.getElementById("sumPemasukanLain").innerText = formatRupiah(totMasuk);
-    document.getElementById("sumPengeluaran").innerText = formatRupiah(totPeng);
-    let container = document.getElementById("keuanganTable");
-    let paginated = paginate(filtered, pageState.keuangan);
-    pageState.keuangan = paginated.currentPage;
-    renderPaginationInfo('pageInfoKeuangan', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countKeuangan').innerText = paginated.total;
-    if (container) {
-      container.innerHTML = "";
-      if (paginated.items.length === 0) {
-        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
-      } else {
-        paginated.items.forEach(row => {
-          const isMasuk = row.Jenis === 'Pemasukan';
-          container.innerHTML += `
-            <div class="p-3 bg-surface rounded-xl">
-              <div class="flex justify-between items-start mb-1">
-                <div class="flex-1 min-w-0">
-                  <span class="text-[10px] ${isMasuk ? 'bg-tertiary-light text-tertiary' : 'bg-error-light text-error'} px-2 py-0.5 rounded-full font-bold">${row.Jenis || 'PENGELUARAN'}</span>
-                  <p class="text-xs font-bold text-slate-900 mt-1">${row.Kategori}</p>
-                </div>
-                <span class="font-bold text-sm font-headline ${isMasuk ? 'text-tertiary' : 'text-error'}">${isMasuk ? '+' : '-'}${formatRupiah(row.Nominal)}</span>
-              </div>
-              <p class="text-[10px] text-on-surface-variant truncate">${row.Keterangan || '-'} • ${row.Tanggal}</p>
-            </div>`;
-        });
-      }
-    }
-  } catch (e) { console.error('loadKeuangan', e); }
-}
-function changePageKeuangan(dir) { pageState.keuangan = Math.max(1, pageState.keuangan + dir); loadKeuangan(); }
-
-// ============ GALON RUSAK ============
-async function loadGalonRusak() {
-  try {
-    globalGalonRusakData = await apiGet('listGallonConditions', {});
-    let container = document.getElementById("galonRusakOwnerTable");
-    let paginated = paginate(globalGalonRusakData, pageState.galonRusak);
-    pageState.galonRusak = paginated.currentPage;
-    renderPaginationInfo('pageInfoGalonRusak', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countGalonRusak').innerText = paginated.total;
-    if (container) {
-      container.innerHTML = "";
-      if (paginated.items.length === 0) {
-        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
-      } else {
-        paginated.items.forEach(row => {
-          container.innerHTML += `
-            <div class="p-3 bg-error-light/50 rounded-xl">
-              <div class="flex justify-between items-start mb-1">
-                <p class="text-xs font-bold text-slate-900">${row.Kondisi}</p>
-                <span class="text-[10px] text-on-surface-variant">${row.Tanggal}</span>
-              </div>
-              <p class="text-[11px] text-error font-medium">${row.Jumlah} galon</p>
-            </div>`;
-        });
-      }
-    }
-  } catch (e) { console.error('loadGalonRusak', e); }
-}
-function changePageGalonRusak(dir) { pageState.galonRusak = Math.max(1, pageState.galonRusak + dir); loadGalonRusak(); }
-
-// ============ KOMISI ============
-async function loadKomisiData() {
-  let container = document.getElementById("komisiTable");
-  try {
-    const data = await apiGet('listCommissions', { operatorId: loggedInRole === 'operator' ? loggedInUser : null });
-    let totKomisi = data.filter(c => c.Status === 'BELUM_DIBAYAR').reduce((s, c) => s + Number(c.Total), 0);
-    document.getElementById("totalKomisiSaya").innerText = formatRupiah(totKomisi);
-    let paginated = paginate(data, pageState.komisi);
-    pageState.komisi = paginated.currentPage;
-    renderPaginationInfo('pageInfoKomisi', paginated.currentPage, paginated.totalPages, paginated.total);
-    document.getElementById('countKomisi').innerText = paginated.total;
-    if (container) {
-      container.innerHTML = "";
-      if (paginated.items.length === 0) {
-        container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada komisi</div>';
-      } else {
-        paginated.items.forEach(row => {
-          const isPaid = row.Status === 'SUDAH_DIBAYAR';
-          container.innerHTML += `
-            <div class="bg-white rounded-2xl p-3 shadow-app border border-border flex items-center justify-between">
-              <div class="min-w-0 flex-1">
-                <p class="text-xs font-bold text-slate-900 font-label">${row.OperatorID}</p>
-                <p class="text-[10px] text-on-surface-variant">${row.Tanggal} • ${row.TrxID}</p>
-              </div>
-              <div class="text-right">
-                <p class="font-bold text-primary font-headline">${formatRupiah(row.Total)}</p>
-                <span class="text-[10px] ${isPaid ? 'text-tertiary' : 'text-warning'} font-bold">${isPaid ? 'SUDAH' : 'BELUM'}</span>
-              </div>
-            </div>`;
-        });
-      }
-    }
-    hitungPreviewKomisi();
-  } catch (e) { console.error('loadKomisiData', e); }
-}
-function changePageKomisi(dir) { pageState.komisi = Math.max(1, pageState.komisi + dir); loadKomisiData(); }
-
-function hitungPreviewKomisi() {
-  let op = document.getElementById("bayarOperator")?.value;
-  let tM = document.getElementById("tglMulai")?.value;
-  let tS = document.getElementById("tglSelesai")?.value;
-  let total = 0;
-  if (op && tM && tS) {
-    let mTime = new Date(tM).getTime();
-    let sTime = new Date(tS).setHours(23,59,59,999);
-    globalTransaksiData.forEach(row => {
-      if (String(row.OperatorID) === String(op) && row.Status !== 'BATAL' && row.TanggalRaw >= mTime && row.TanggalRaw <= sTime) {
-        let rate = 0;
-        if (row.Tipe === 'KONSUMEN') rate = 2000;
-        else if (row.Tipe === 'AGEN') rate = (row.Catatan && row.Catatan.indexOf('DIANTAR_OPERATOR') >= 0) ? 1000 : 2000;
-        total += rate * Number(row.Jumlah || 0);
-      }
-    });
-  }
-  let el = document.getElementById("previewNominalKomisi");
-  if (el) el.innerText = formatRupiah(total);
-}
-
-async function prosesBayarKomisiMassal() {
-  let op = document.getElementById("bayarOperator").value;
-  let tM = document.getElementById("tglMulai").value, tS = document.getElementById("tglSelesai").value;
-  if (!op || !tM || !tS) { showPopup("Peringatan", "Lengkapi data!", false); return; }
-  if (!confirm(`Bayar komisi ${op}?`)) return;
-  try {
-    const comms = await apiGet('listCommissions', { operatorId: op });
-    const unpaid = comms.filter(c => c.Status === 'BELUM_DIBAYAR');
-    const total = unpaid.reduce((s, c) => s + Number(c.Total), 0);
-    if (total <= 0) { showPopup("Info", "Tidak ada komisi belum dibayar.", false); return; }
-    await apiPost('payCommission', {
-      OperatorID: op, Total: total,
-      CommissionIDs: unpaid.map(c => c.ID),
-      Metode: 'TUNAI', UserID: loggedInUser
-    });
-    showPopup("Sukses", `Komisi ${formatRupiah(total)} dibayar!`);
-    refreshAllData();
-  } catch (e) { showPopup("Gagal", e.message, false); }
-}
-
-// ============ INIT ============
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    if (document.getElementById('listProdukContainer')?.children.length === 0) tambahBarisProduk();
-    setSegment('umum');
-    setGalonTab('tertahan');
-  }, 500);
 });
 </script>
 </body>
