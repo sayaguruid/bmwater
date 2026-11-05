@@ -1349,13 +1349,15 @@
             document.getElementById('agen-sisa-bon').innerText = formatRupiah(bon);
         }
 
-        function updateDropdownProdukSemuaBaris() {
-            document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-                let select = row.querySelector(".produk-jenis");
-                if(select) isiDropdownProduk(select, select.value);
-            });
+function updateDropdownProdukSemuaBaris() {
+    document.querySelectorAll("#listProdukContainer > div").forEach(row => {
+        let select = row.querySelector(".produk-jenis");
+        if (select) {
+            let currentValue = select.value; // simpan pilihan user
+            isiDropdownProduk(select, currentValue);
         }
-
+    });
+}
         function isiDropdownProduk(selectElement, selectedValue = "") {
             let targetJenisPelanggan = (currentSegment === "agen") ? "Agen" : "Konsumen";
             selectElement.innerHTML = '<option value="">Pilih Jenis Galon...</option>';
@@ -1570,31 +1572,42 @@
         }
 
         // ============ LOAD DATA ============
-        async function loadMasterHarga() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_harga");
-                masterHargaList = await res.json();
-                if(document.getElementById("listProdukContainer").children.length === 0) tambahBarisProduk();
-                let hargaContainer = document.getElementById("hargaListContainer");
-                if(hargaContainer && loggedInRole === 'owner') {
-                    hargaContainer.innerHTML = "";
-                    masterHargaList.forEach(i => {
-                        hargaContainer.innerHTML += `
-                            <div class="flex items-center justify-between p-3 bg-surface rounded-xl text-xs">
-                                <div class="flex-1 min-w-0">
-                                    <p class="font-bold text-slate-900">${i.jenis}</p>
-                                    <p class="text-[10px] text-on-surface-variant">${i.jenisPelanggan}</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" id="price_${i.jenis}_${i.jenisPelanggan}" value="${i.harga}" class="px-2 py-1.5 bg-white border border-border rounded-lg w-24 text-right font-bold text-xs">
-                                    <button onclick="updateHarga('${i.jenis}', '${i.jenisPelanggan}')" class="bg-tertiary text-white px-3 py-1.5 rounded-lg text-xs font-bold">Simpan</button>
-                                </div>
-                            </div>`;
-                    });
-                }
-            } catch(e) { console.error('loadMasterHarga', e); }
-        }
+async function loadMasterHarga() {
+    try {
+        let res = await fetch(SCRIPT_URL + "?action=get_harga");
+        masterHargaList = await res.json();
 
+        // === PERBAIKAN: refresh semua dropdown yang sudah ada ===
+        let container = document.getElementById("listProdukContainer");
+        if (container) {
+            if (container.children.length === 0) {
+                tambahBarisProduk();
+            } else {
+                // Refresh dropdown yang sudah ada tanpa menghapus pilihan user
+                updateDropdownProdukSemuaBaris();
+            }
+        }
+        // === END PERBAIKAN ===
+
+        let hargaContainer = document.getElementById("hargaListContainer");
+        if(hargaContainer && loggedInRole === 'owner') {
+            hargaContainer.innerHTML = "";
+            masterHargaList.forEach(i => {
+                hargaContainer.innerHTML += `
+                    <div class="flex items-center justify-between p-3 bg-surface rounded-xl text-xs">
+                        <div class="flex-1 min-w-0">
+                            <p class="font-bold text-slate-900">${i.jenis}</p>
+                            <p class="text-[10px] text-on-surface-variant">${i.jenisPelanggan}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="price_${i.jenis}_${i.jenisPelanggan}" value="${i.harga}" class="px-2 py-1.5 bg-white border border-border rounded-lg w-24 text-right font-bold text-xs">
+                            <button onclick="updateHarga('${i.jenis}', '${i.jenisPelanggan}')" class="bg-tertiary text-white px-3 py-1.5 rounded-lg text-xs font-bold">Simpan</button>
+                        </div>
+                    </div>`;
+            });
+        }
+    } catch(e) { console.error('loadMasterHarga', e); }
+}
         function updateHarga(jenis, jenisPelanggan) {
             let h = document.getElementById(`price_${jenis}_${jenisPelanggan}`).value;
             fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "update_harga", jenis, harga: h, jenisPelanggan }) })
@@ -2361,13 +2374,17 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                if(document.getElementById('listProdukContainer')?.children.length === 0) tambahBarisProduk();
-                setSegment('umum'); // PERBAIKAN 1: Default konsumen
-                setGalonTab('tertahan');
-            }, 800);
-        });
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        // Hanya buat baris jika container benar-benar kosong DAN harga sudah siap
+        if (document.getElementById('listProdukContainer')?.children.length === 0
+            && masterHargaList.length > 0) {
+            tambahBarisProduk();
+        }
+        setSegment('umum');
+        setGalonTab('tertahan');
+    }, 800);
+});
     </script>
 </body>
 </html>
