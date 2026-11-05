@@ -1,6 +1,15 @@
 /*******************************************************
  * BM WATER - FRONTEND (GitHub Pages)
  * Backend: Google Apps Script
+ *
+ * FIX 05 Nov 2026 - dropdown produk/agen langsung muncul:
+ *   1) fetchProducts() & fetchAgents() ditambahkan (sebelumnya dipanggil
+ *      tapi tidak ada definisinya -> dropdown tidak terisi).
+ *   2) Setiap modal penjualan SELALU ambil data terbaru dari server,
+ *      jadi produk/agen baru langsung muncul tanpa perlu pindah tab.
+ *   3) openModal() memaksa reflow agar opsi <select> langsung ter-render.
+ *   4) Filter status toleran (huruf besar/kecil, Status kosong) + fallback,
+ *      dropdown tidak pernah kosong karena selisih format Status.
  *******************************************************/
 
 // ============ CONFIG ============
@@ -46,6 +55,14 @@ function api(action, payload) {
   });
 }
 
+// ============ MASTER DATA (selalu fetch segar setiap dipakai) ============
+async function fetchProducts() {
+  return api('getProducts', {});
+}
+async function fetchAgents() {
+  return api('getAgents', {});
+}
+
 // ============ HELPERS ============
 function $(s) { return document.querySelector(s); }
 function rp(n) { return 'Rp' + Number(n||0).toLocaleString('id-ID'); }
@@ -67,6 +84,7 @@ function openModal(html, onReady) {
   // pakai setTimeout 0 agar select ter-render penuh
   setTimeout(() => {
     modalEl.innerHTML = html;
+    void modalEl.offsetWidth; // paksa reflow: opsi <select> langsung tampil tanpa perlu pindah tab
     if (typeof onReady === 'function') onReady();
   }, 0);
 }
@@ -350,26 +368,31 @@ async function cancelTrx(id) {
 async function modalSale(tipe) {
   loading(true);
   try {
+    // Selalu ambil data TERBARU dari server setiap kali modal dibuka,
+    // jadi produk/agen yang baru ditambahkan langsung muncul di dropdown.
     const products = await fetchProducts();
-    const active = products.filter(p => p.Status === 'Aktif');
-    if (!active.length) {
-      toast('Belum ada produk aktif. Tambahkan produk dulu di Master Data.', 'error');
+    let pool = products.filter(p => !p.Status || String(p.Status).toLowerCase() === 'aktif');
+    if (!pool.length) pool = products; // fallback: dropdown tidak boleh kosong
+    if (!pool.length) {
+      toast('Belum ada produk. Tambahkan produk dulu di Master Data.', 'error');
       loading(false);
       return;
     }
 
     let agents = [];
     if (tipe === 'AGEN') {
-      agents = (await fetchAgents()).filter(a => a.Status === 'Aktif');
+      const semuaAgen = await fetchAgents();
+      agents = semuaAgen.filter(a => !a.Status || String(a.Status).toLowerCase() === 'aktif');
+      if (!agents.length) agents = semuaAgen; // fallback: dropdown tidak boleh kosong
       if (!agents.length) {
-        toast('Belum ada agen aktif.', 'error');
+        toast('Belum ada agen. Tambahkan agen dulu di menu Agen.', 'error');
         loading(false);
         return;
       }
     }
 
-    const opts = active.map(p =>
-      `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(p.HargaKonsumen)}</option>`
+    const opts = pool.map(p =>
+      `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(tipe === 'AGEN' ? p.HargaAgen : p.HargaKonsumen)}</option>`
     ).join('');
 
     const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
@@ -532,7 +555,7 @@ async function submitExpense(e) {
 async function modalGallonCondition() {
   loading(true);
   try {
-    const products = await api('getProducts', {});
+    const products = await fetchProducts();
     const opts = products.map(p => `<option value="${p.ID}">${esc(p.Nama)}</option>`).join('');
     openModal(`
       <div class="modal-header"><h3>Lapor Kondisi Galon</h3><button onclick="closeModal()">×</button></div>
@@ -577,8 +600,8 @@ async function submitGallonCondition(e) {
 async function modalAgentReturn() {
   loading(true);
   try {
-    const agents = await api('getAgents', {});
-    const products = await api('getProducts', {});
+    const agents = await fetchAgents();
+    const products = await fetchProducts();
     const agOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
     const prOpts = products.map(p => `<option value="${p.ID}">${esc(p.Nama)}</option>`).join('');
     openModal(`
@@ -882,7 +905,7 @@ async function detailAgen(id) {
 async function viewStock(el) {
   try {
     const s = await api('getStock', {});
-    const products = await api('getProducts', {});
+    const products = await fetchProducts();
     const galonRows = Object.keys(s.galon).map(id => {
       const p = products.find(x => String(x.ID) === String(id));
       return `<tr><td>${esc(p?p.Nama:id)}</td><td>${s.galon[id]}</td></tr>`;
@@ -1294,7 +1317,7 @@ async function submitPurchase(e) {
 // ============ VIEW MASTER DATA ============
 async function viewMaster(el) {
   try {
-    const products = await api('getProducts', {});
+    const products = await fetchProducts();
     el.innerHTML = `<div class="section"><h2>Master Produk</h2>
         <button class="btn" onclick="modalProduct()">+ Produk</button></div>
       <div class="table-wrap">${products.length ? `<table><thead><tr>
