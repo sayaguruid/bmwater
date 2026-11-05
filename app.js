@@ -343,16 +343,32 @@ async function cancelTrx(id) {
 async function modalSale(tipe) {
   loading(true);
   try {
+    // Pastikan produk benar-benar termuat
     const products = await api('getProducts', {});
     const active = products.filter(p => p.Status === 'Aktif');
+
+    if (!active.length) {
+      toast('Belum ada produk aktif. Tambahkan produk dulu di Master Data.', 'error');
+      loading(false);
+      return;
+    }
+
     let agents = [];
     if (tipe === 'AGEN') {
       agents = (await api('getAgents', {})).filter(a => a.Status === 'Aktif');
+      if (!agents.length) {
+        toast('Belum ada agen aktif.', 'error');
+        loading(false);
+        return;
+      }
     }
+
     const opts = active.map(p =>
       `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(p.HargaKonsumen)}</option>`
     ).join('');
+
     const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
+
     openModal(`
       <div class="modal-header"><h3>Penjualan ${tipe}</h3><button onclick="closeModal()">×</button></div>
       <div class="modal-body">
@@ -390,25 +406,53 @@ async function modalSale(tipe) {
           <button class="btn" type="submit">SIMPAN TRANSAKSI</button>
         </form>
       </div>`);
-    hitungTotal(tipe);
-  } catch (e) { toast(e.message, 'error'); }
+
+    // PENTING: paksa pilih opsi pertama secara eksplisit, lalu hitung.
+    // Gunakan setTimeout agar DOM benar-benar sudah terpasang & select ter-render.
+    setTimeout(() => {
+      const sel = document.getElementById('s_produk');
+      if (sel && sel.options.length > 0) {
+        sel.selectedIndex = 0;   // pilih opsi pertama
+      }
+      hitungTotal(tipe);
+    }, 0);
+
+  } catch (e) {
+    toast(e.message, 'error');
+  }
   loading(false);
 }
 
 function hitungTotal(tipe) {
   const sel = $('#s_produk'); if (!sel) return;
+
+  // Fallback: jika belum ada yang terpilih, paksa pilih yang pertama
+  if (sel.selectedIndex < 0 && sel.options.length > 0) {
+    sel.selectedIndex = 0;
+  }
+
   const opt = sel.options[sel.selectedIndex];
   if (!opt) return;
+
   const isAgen = tipe === 'AGEN';
   const harga = isAgen ? Number(opt.dataset.ha) : Number(opt.dataset.h);
-  const jumlah = num('s_jumlah');
+  const jumlah = Math.max(1, num('s_jumlah'));
   const total = harga * jumlah;
-  $('#s_total').textContent = rp(total);
-  $('#s_harga').textContent = `Harga: ${rp(harga)} × ${jumlah}`;
+
+  const totalEl = $('#s_total');
+  const hargaEl = $('#s_harga');
+  if (totalEl) totalEl.textContent = rp(total);
+  if (hargaEl) hargaEl.textContent = `Harga: ${rp(harga)} × ${jumlah}`;
+
   if (isAgen) {
-    const deliv = $('#s_deliv').value;
-    const rate = deliv === 'DIAMBIL_AGEN' ? Number(opt.dataset.kj) : Number(opt.dataset.ka);
-    $('#s_komisi').value = rp(rate * jumlah);
+    const delivEl = $('#s_deliv');
+    const komisiEl = $('#s_komisi');
+    if (delivEl && komisiEl) {
+      const rate = delivEl.value === 'DIAMBIL_AGEN'
+        ? Number(opt.dataset.kj)
+        : Number(opt.dataset.ka);
+      komisiEl.value = rp(rate * jumlah);
+    }
   }
   toggleBayar();
 }
