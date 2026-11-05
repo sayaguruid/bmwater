@@ -10,11 +10,18 @@
  *   3) openModal() memaksa reflow agar opsi <select> langsung ter-render.
  *   4) Filter status toleran (huruf besar/kecil, Status kosong) + fallback,
  *      dropdown tidak pernah kosong karena selisih format Status.
+ *   5) v1.2: data produk & agen di-prefetch sejak login/halaman dibuka;
+ *      modal penjualan terbuka seketika, dropdown terisi instan dari cache
+ *      lalu disegarkan otomatis dari server. Versi tampil di layar login.
  *******************************************************/
 
 // ============ CONFIG ============
 const API_URL = 'https://script.google.com/macros/s/AKfycbw4fnyrVl5i2EvwDQWMzG-xQLQjfJ0oeDE1KhiIycUY4UrRJt6hGteF_xwD6JiCZFk/exec';
 // Ganti dengan URL Web App Apps Script Anda
+
+const APP_VERSION = 'v1.2-dropdownfix';
+console.log('%cBM Water ' + APP_VERSION,
+  'background:#0284c7;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold');
 
 const STATE = {
   user: null,
@@ -55,12 +62,40 @@ function api(action, payload) {
   });
 }
 
-// ============ MASTER DATA (selalu fetch segar setiap dipakai) ============
-async function fetchProducts() {
-  return api('getProducts', {});
+// ============ MASTER DATA (cache pendek + prefetch + segarkan otomatis) ============
+const MASTER_TTL = 15000; // cache dianggap segar selama 15 detik
+
+async function fetchProducts(force) {
+  const c = STATE.cache;
+  if (!force && c.products && Date.now() - (c.productsAt || 0) < MASTER_TTL) return c.products;
+  const data = await api('getProducts', {});
+  c.products = Array.isArray(data) ? data : [];
+  c.productsAt = Date.now();
+  return c.products;
 }
-async function fetchAgents() {
-  return api('getAgents', {});
+
+async function fetchAgents(force) {
+  const c = STATE.cache;
+  if (!force && c.agents && Date.now() - (c.agentsAt || 0) < MASTER_TTL) return c.agents;
+  const data = await api('getAgents', {});
+  c.agents = Array.isArray(data) ? data : [];
+  c.agentsAt = Date.now();
+  return c.agents;
+}
+
+function invalidateMaster() {
+  STATE.cache.products = null;
+  STATE.cache.productsAt = 0;
+  STATE.cache.agents = null;
+  STATE.cache.agentsAt = 0;
+}
+
+// Dipanggil saat login & saat halaman dibuka: data sudah dimuat lebih awal,
+// sehingga dropdown penjualan terisi seketika saat modal dibuka.
+function prefetchMaster() {
+  if (!STATE.user) return;
+  fetchProducts().catch(() => {});
+  fetchAgents().catch(() => {});
 }
 
 // ============ HELPERS ============
@@ -104,6 +139,7 @@ function doLogin(e) {
     .then(user => {
       STATE.user = user;
       localStorage.setItem('bw_user', JSON.stringify(user));
+      prefetchMaster(); // muat data produk & agen lebih awal
       renderApp();
       toast('Selamat datang, ' + user.Nama, 'success');
     })
@@ -138,7 +174,7 @@ function renderLogin() {
           <button class="btn" type="submit">MASUK</button>
         </form>
         <p style="margin-top:14px;font-size:11px;color:#999;text-align:center">
-          Default: owner/owner123 • operator/operator123
+          Default: owner/owner123 • operator/operator123<br>versi ${APP_VERSION}
         </p>
       </div>
     </div>`;
@@ -151,7 +187,7 @@ function renderApp() {
       <div class="header">
         <div>
           <h1>💧 BM Water</h1>
-          <div class="user">${esc(u.Nama)} • ${u.Role}</div>
+          <div class="user">${esc(u.Nama)} • ${u.Role} • ${APP_VERSION}</div>
         </div>
         <button onclick="logout()">Keluar</button>
       </div>
@@ -365,37 +401,52 @@ async function cancelTrx(id) {
 }
 
 // ============ MODAL PENJUALAN ============
+function opsiProdukHTML(tipe, list) {
+  return (list || []).map(p =>
+    `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(tipe === 'AGEN' ? p.HargaAgen : p.HargaKonsumen)}</option>`
+  ).join('');
+}
+
+// Isi dropdown produk dari data terbaru; pilihan user dipertahankan,
+// dan render dilewati bila datanya tidak berubah (hindari flicker).
+function isiOpsiProduk(tipe, list) {
+  const sel = document.getElementById('s_produk');
+  if (!sel) return;
+  let pool = (list || []).filter(p => !p.Status || String(p.Status).toLowerCase() === 'aktif');
+  if (!pool.length) pool = list || [];
+  if (!pool.length) return; // data kosong: pertahankan isi dropdown lama
+  const sig = JSON.stringify(pool.map(p => [p.ID, p.Nama, p.HargaKonsumen, p.HargaAgen, p.KomisiJual, p.KomisiAntar]));
+  if (sig === sel.dataset.sig) return;
+  const prev = sel.value;
+  sel.dataset.sig = sig;
+  sel.innerHTML = opsiProdukHTML(tipe, pool);
+  if (prev && pool.some(p => String(p.ID) === String(prev))) sel.value = prev;
+  hitungTotal(tipe);
+}
+
+function isiOpsiAgen(list) {
+  const sel = document.getElementById('s_agen');
+  if (!sel) return;
+  if (!list || !list.length) return;
+  const sig = JSON.stringify(list.map(a => [a.ID, a.Nama]));
+  if (sig === sel.dataset.sig) return;
+  const prev = sel.value;
+  sel.dataset.sig = sig;
+  sel.innerHTML = list.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
+  if (prev && list.some(a => String(a.ID) === String(prev))) sel.value = prev;
+}
+
 async function modalSale(tipe) {
-  loading(true);
-  try {
-    // Selalu ambil data TERBARU dari server setiap kali modal dibuka,
-    // jadi produk/agen yang baru ditambahkan langsung muncul di dropdown.
-    const products = await fetchProducts();
-    let pool = products.filter(p => !p.Status || String(p.Status).toLowerCase() === 'aktif');
-    if (!pool.length) pool = products; // fallback: dropdown tidak boleh kosong
-    if (!pool.length) {
-      toast('Belum ada produk. Tambahkan produk dulu di Master Data.', 'error');
-      loading(false);
-      return;
-    }
+  const c = STATE.cache;
 
-    let agents = [];
-    if (tipe === 'AGEN') {
-      const semuaAgen = await fetchAgents();
-      agents = semuaAgen.filter(a => !a.Status || String(a.Status).toLowerCase() === 'aktif');
-      if (!agents.length) agents = semuaAgen; // fallback: dropdown tidak boleh kosong
-      if (!agents.length) {
-        toast('Belum ada agen. Tambahkan agen dulu di menu Agen.', 'error');
-        loading(false);
-        return;
-      }
-    }
-
-    const opts = pool.map(p =>
-      `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(tipe === 'AGEN' ? p.HargaAgen : p.HargaKonsumen)}</option>`
-    ).join('');
-
-    const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
+  // Modal terbuka SEKETIKA (tidak menunggu jaringan). Dropdown diisi langsung
+  // dari cache yang sudah di-prefetch saat login / halaman dibuka. Bila cache
+  // masih kosong, tampil "Memuat..." lalu terisi OTOMATIS begitu data dari
+  // server tiba - tidak perlu pindah tab.
+  let opts = opsiProdukHTML(tipe, c.products);
+  if (!opts) opts = '<option value="" selected>Memuat data produk...</option>';
+  let agentOpts = (c.agents || []).map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
+  if (tipe === 'AGEN' && !agentOpts) agentOpts = '<option value="" selected>Memuat data agen...</option>';
 
     const html = `
       <div class="modal-header"><h3>Penjualan ${tipe}</h3><button onclick="closeModal()">×</button></div>
@@ -435,16 +486,20 @@ async function modalSale(tipe) {
         </form>
       </div>`;
 
-    openModal(html, () => {
-      const sel = document.getElementById('s_produk');
-      if (sel && sel.options.length > 0) sel.selectedIndex = 0;
-      hitungTotal(tipe);
-    });
+  openModal(html, () => {
+    const sel = document.getElementById('s_produk');
+    if (sel && sel.options.length > 0 && sel.options[0].value !== '') sel.selectedIndex = 0;
+    hitungTotal(tipe);
+  });
 
-  } catch (e) {
-    toast(e.message, 'error');
+  // Segarkan data dari server tanpa menahan modal; dropdown terisi ulang
+  // otomatis begitu data terbaru tiba.
+  fetchProducts(true)
+    .then(list => isiOpsiProduk(tipe, list))
+    .catch(e => { if (!(c.products || []).length) toast('Gagal memuat produk: ' + e.message, 'error'); });
+  if (tipe === 'AGEN') {
+    fetchAgents(true).then(list => isiOpsiAgen(list)).catch(() => {});
   }
-  loading(false);
 }
 function hitungTotal(tipe) {
   const sel = $('#s_produk'); if (!sel) return;
@@ -455,7 +510,12 @@ function hitungTotal(tipe) {
   }
 
   const opt = sel.options[sel.selectedIndex];
-  if (!opt) return;
+  if (!opt || !opt.value) { // masih "Memuat data produk..."
+    const t0 = $('#s_total'), h0 = $('#s_harga');
+    if (t0) t0.textContent = rp(0);
+    if (h0) h0.textContent = 'Memuat harga...';
+    return;
+  }
 
   const isAgen = tipe === 'AGEN';
   const harga = isAgen ? Number(opt.dataset.ha) : Number(opt.dataset.h);
@@ -491,6 +551,8 @@ function toggleBayar() {
 
 async function submitSale(e, tipe) {
   e.preventDefault();
+  if (!val('s_produk')) { toast('Data produk belum termuat, tunggu sebentar lalu simpan lagi', 'error'); return; }
+  if (tipe === 'AGEN' && !val('s_agen')) { toast('Pilih agen dulu', 'error'); return; }
   const p = {
     Tipe: tipe,
     ProdukID: val('s_produk'),
@@ -868,6 +930,7 @@ async function submitAgent(e) {
       Catatan: val('a_catatan'),
       UserID: STATE.user.ID
     });
+    invalidateMaster();
     closeModal();
     toast('Agen tersimpan', 'success');
     viewAgents($('#content'));
@@ -1375,6 +1438,7 @@ async function submitProduct(e) {
       Status: val('p_st'),
       UserID: STATE.user.ID
     });
+    invalidateMaster();
     closeModal();
     toast('Produk tersimpan', 'success');
     viewMaster($('#content'));
@@ -1429,5 +1493,6 @@ async function saveSettings() {
 (function init() {
   const saved = localStorage.getItem('bw_user');
   if (saved) { try { STATE.user = JSON.parse(saved); } catch(e){} }
+  if (STATE.user) prefetchMaster();
   render();
 })();
