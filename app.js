@@ -38,13 +38,10 @@ function api(action, payload) {
       action: action,
       payload: JSON.stringify(payload || {}),
       callback: callback,
-      _t: Date.now()          // <-- cache buster
+      _t: Date.now()
     });
     const script = document.createElement('script');
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('Request timeout'));
-    }, 30000);
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Request timeout')); }, 30000);
 
     function cleanup() {
       clearTimeout(timer);
@@ -53,8 +50,8 @@ function api(action, payload) {
     }
     window[callback] = function(res) {
       cleanup();
-      if (res.ok) resolve(res.data);
-      else reject(new Error(res.error));
+      if (res && res.ok) resolve(res.data);
+      else reject(new Error((res && res.error) || 'Unknown error'));
     };
     script.onerror = function() { cleanup(); reject(new Error('Network error')); };
     script.src = API_URL + '?' + params.toString();
@@ -66,23 +63,17 @@ function api(action, payload) {
 const MASTER_TTL = 15000; // cache dianggap segar selama 15 detik
 
 async function fetchProducts(force) {
-  const c = STATE.cache;
-  if (!force && c.products && Date.now() - (c.productsAt || 0) < MASTER_TTL) return c.products;
-  const data = await api('getProducts', {});
-  c.products = Array.isArray(data) ? data : [];
-  c.productsAt = Date.now();
-  return c.products;
+  if (!force && STATE.cache.products) return STATE.cache.products;
+  const list = await api('getProducts', {});
+  STATE.cache.products = list;
+  return list;
 }
-
 async function fetchAgents(force) {
-  const c = STATE.cache;
-  if (!force && c.agents && Date.now() - (c.agentsAt || 0) < MASTER_TTL) return c.agents;
-  const data = await api('getAgents', {});
-  c.agents = Array.isArray(data) ? data : [];
-  c.agentsAt = Date.now();
-  return c.agents;
+  if (!force && STATE.cache.agents) return STATE.cache.agents;
+  const list = await api('getAgents', {});
+  STATE.cache.agents = list;
+  return list;
 }
-
 function invalidateMaster() {
   STATE.cache.products = null;
   STATE.cache.productsAt = 0;
@@ -116,10 +107,8 @@ function openModal(html, onReady) {
   const modalEl = $('#modal');
   if (modalEl) modalEl.innerHTML = '';
   $('#modal-bg').classList.add('show');
-  // pakai setTimeout 0 agar select ter-render penuh
   setTimeout(() => {
     modalEl.innerHTML = html;
-    void modalEl.offsetWidth; // paksa reflow: opsi <select> langsung tampil tanpa perlu pindah tab
     if (typeof onReady === 'function') onReady();
   }, 0);
 }
@@ -437,16 +426,24 @@ function isiOpsiAgen(list) {
 }
 
 async function modalSale(tipe) {
-  const c = STATE.cache;
+  loading(true);
+  try {
+    const products = await fetchProducts();
+    const active = products.filter(p => p.Status === 'Aktif');
+    if (!active.length) {
+      toast('Belum ada produk aktif. Tambahkan dulu di Master Data.', 'error');
+      loading(false); return;
+    }
+    let agents = [];
+    if (tipe === 'AGEN') {
+      agents = (await fetchAgents()).filter(a => a.Status === 'Aktif');
+      if (!agents.length) { toast('Belum ada agen aktif.', 'error'); loading(false); return; }
+    }
 
-  // Modal terbuka SEKETIKA (tidak menunggu jaringan). Dropdown diisi langsung
-  // dari cache yang sudah di-prefetch saat login / halaman dibuka. Bila cache
-  // masih kosong, tampil "Memuat..." lalu terisi OTOMATIS begitu data dari
-  // server tiba - tidak perlu pindah tab.
-  let opts = opsiProdukHTML(tipe, c.products);
-  if (!opts) opts = '<option value="" selected>Memuat data produk...</option>';
-  let agentOpts = (c.agents || []).map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
-  if (tipe === 'AGEN' && !agentOpts) agentOpts = '<option value="" selected>Memuat data agen...</option>';
+    const opts = active.map(p =>
+      `<option value="${p.ID}" data-h="${p.HargaKonsumen}" data-ha="${p.HargaAgen}" data-kj="${p.KomisiJual||2000}" data-ka="${p.KomisiAntar||1000}">${esc(p.Nama)} - ${rp(p.HargaKonsumen)}</option>`
+    ).join('');
+    const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
 
     const html = `
       <div class="modal-header"><h3>Penjualan ${tipe}</h3><button onclick="closeModal()">×</button></div>
@@ -486,54 +483,29 @@ async function modalSale(tipe) {
         </form>
       </div>`;
 
-  openModal(html, () => {
-    const sel = document.getElementById('s_produk');
-    if (sel && sel.options.length > 0 && sel.options[0].value !== '') sel.selectedIndex = 0;
-    hitungTotal(tipe);
-  });
-
-  // Segarkan data dari server tanpa menahan modal; dropdown terisi ulang
-  // otomatis begitu data terbaru tiba.
-  fetchProducts(true)
-    .then(list => isiOpsiProduk(tipe, list))
-    .catch(e => { if (!(c.products || []).length) toast('Gagal memuat produk: ' + e.message, 'error'); });
-  if (tipe === 'AGEN') {
-    fetchAgents(true).then(list => isiOpsiAgen(list)).catch(() => {});
-  }
+    openModal(html, () => {
+      const sel = document.getElementById('s_produk');
+      if (sel && sel.options.length > 0) sel.selectedIndex = 0;
+      hitungTotal(tipe);
+    });
+  } catch (e) { toast(e.message, 'error'); }
+  loading(false);
 }
+
 function hitungTotal(tipe) {
   const sel = $('#s_produk'); if (!sel) return;
-
-  // Fallback: jika belum ada yang terpilih, paksa pilih yang pertama
-  if (sel.selectedIndex < 0 && sel.options.length > 0) {
-    sel.selectedIndex = 0;
-  }
-
-  const opt = sel.options[sel.selectedIndex];
-  if (!opt || !opt.value) { // masih "Memuat data produk..."
-    const t0 = $('#s_total'), h0 = $('#s_harga');
-    if (t0) t0.textContent = rp(0);
-    if (h0) h0.textContent = 'Memuat harga...';
-    return;
-  }
-
+  if (sel.selectedIndex < 0 && sel.options.length > 0) sel.selectedIndex = 0;
+  const opt = sel.options[sel.selectedIndex]; if (!opt) return;
   const isAgen = tipe === 'AGEN';
   const harga = isAgen ? Number(opt.dataset.ha) : Number(opt.dataset.h);
   const jumlah = Math.max(1, num('s_jumlah'));
   const total = harga * jumlah;
-
-  const totalEl = $('#s_total');
-  const hargaEl = $('#s_harga');
-  if (totalEl) totalEl.textContent = rp(total);
-  if (hargaEl) hargaEl.textContent = `Harga: ${rp(harga)} × ${jumlah}`;
-
+  const totalEl = $('#s_total'); if (totalEl) totalEl.textContent = rp(total);
+  const hargaEl = $('#s_harga'); if (hargaEl) hargaEl.textContent = `Harga: ${rp(harga)} × ${jumlah}`;
   if (isAgen) {
-    const delivEl = $('#s_deliv');
-    const komisiEl = $('#s_komisi');
+    const delivEl = $('#s_deliv'), komisiEl = $('#s_komisi');
     if (delivEl && komisiEl) {
-      const rate = delivEl.value === 'DIAMBIL_AGEN'
-        ? Number(opt.dataset.kj)
-        : Number(opt.dataset.ka);
+      const rate = delivEl.value === 'DIAMBIL_AGEN' ? Number(opt.dataset.kj) : Number(opt.dataset.ka);
       komisiEl.value = rp(rate * jumlah);
     }
   }
