@@ -21,7 +21,8 @@ function api(action, payload) {
     const params = new URLSearchParams({
       action: action,
       payload: JSON.stringify(payload || {}),
-      callback: callback
+      callback: callback,
+      _t: Date.now()          // <-- cache buster
     });
     const script = document.createElement('script');
     const timer = setTimeout(() => {
@@ -59,9 +60,15 @@ function toast(msg, type) {
   t.className = 'toast show ' + (type || '');
   setTimeout(() => t.className = 'toast ' + (type || ''), 2500);
 }
-function openModal(html) {
-  $('#modal').innerHTML = html;
+function openModal(html, onReady) {
+  const modalEl = $('#modal');
+  if (modalEl) modalEl.innerHTML = '';
   $('#modal-bg').classList.add('show');
+  // pakai setTimeout 0 agar select ter-render penuh
+  setTimeout(() => {
+    modalEl.innerHTML = html;
+    if (typeof onReady === 'function') onReady();
+  }, 0);
 }
 function closeModal() { $('#modal-bg').classList.remove('show'); }
 function confirmBox(msg) { return window.confirm(msg); }
@@ -343,10 +350,8 @@ async function cancelTrx(id) {
 async function modalSale(tipe) {
   loading(true);
   try {
-    // Pastikan produk benar-benar termuat
-    const products = await api('getProducts', {});
+    const products = await fetchProducts();
     const active = products.filter(p => p.Status === 'Aktif');
-
     if (!active.length) {
       toast('Belum ada produk aktif. Tambahkan produk dulu di Master Data.', 'error');
       loading(false);
@@ -355,7 +360,7 @@ async function modalSale(tipe) {
 
     let agents = [];
     if (tipe === 'AGEN') {
-      agents = (await api('getAgents', {})).filter(a => a.Status === 'Aktif');
+      agents = (await fetchAgents()).filter(a => a.Status === 'Aktif');
       if (!agents.length) {
         toast('Belum ada agen aktif.', 'error');
         loading(false);
@@ -369,7 +374,7 @@ async function modalSale(tipe) {
 
     const agentOpts = agents.map(a => `<option value="${a.ID}">${esc(a.Nama)}</option>`).join('');
 
-    openModal(`
+    const html = `
       <div class="modal-header"><h3>Penjualan ${tipe}</h3><button onclick="closeModal()">×</button></div>
       <div class="modal-body">
         <form onsubmit="submitSale(event,'${tipe}')">
@@ -405,24 +410,19 @@ async function modalSale(tipe) {
             <textarea id="s_catatan" rows="2" placeholder="Contoh: Pak Dedi, dibayar besok"></textarea></div>
           <button class="btn" type="submit">SIMPAN TRANSAKSI</button>
         </form>
-      </div>`);
+      </div>`;
 
-    // PENTING: paksa pilih opsi pertama secara eksplisit, lalu hitung.
-    // Gunakan setTimeout agar DOM benar-benar sudah terpasang & select ter-render.
-    setTimeout(() => {
+    openModal(html, () => {
       const sel = document.getElementById('s_produk');
-      if (sel && sel.options.length > 0) {
-        sel.selectedIndex = 0;   // pilih opsi pertama
-      }
+      if (sel && sel.options.length > 0) sel.selectedIndex = 0;
       hitungTotal(tipe);
-    }, 0);
+    });
 
   } catch (e) {
     toast(e.message, 'error');
   }
   loading(false);
 }
-
 function hitungTotal(tipe) {
   const sel = $('#s_produk'); if (!sel) return;
 
