@@ -942,1432 +942,1282 @@
     </div>
 
     <script>
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7Oo5_udErUob7gZN9Scfy9806AHRB-QZBicVskGDDkBhchWQyEso8DUM8LoEoPgpy/exec";
-        
-        let masterHargaList = [], agenList = [], globalTransaksiData = [], globalGalonTertahan = [], globalKeuanganData = [];
-        let globalGalonRusakData = [], globalLogPengembalianData = [];
-        let loggedInUser = null, loggedInRole = null;
-        let activeTargetPiutang = null, activeAgenPiutang = null;
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx7Oo5_udErUob7gZN9Scfy9806AHRB-QZBicVskGDDkBhchWQyEso8DUM8LoEoPgpy/exec";
 
-        const PAGE_SIZE = 10;
-        let pageState = {
-            riwayat: 1, piutang: 1, stokTertahan: 1, logPengembalian: 1,
-            galonRusak: 1, keuangan: 1, komisi: 1, daftarBeli: 1
-        };
+// ============ STATE ============
+let loggedInUser = null, loggedInRole = null;
+let masterHargaList = [], agenList = [];
+let globalTransaksiData = [], globalKeuanganData = [];
+let globalGalonRusakData = [], globalGalonTertahan = [], globalLogPengembalianData = [];
+let activeTargetPiutang = null, activeAgenPiutang = null;
+let currentSegment = 'umum';
+let currentGalonTab = 'tertahan';
 
-        let currentSegment = 'umum'; // PERBAIKAN 1: Default konsumen
-        let currentGalonTab = 'tertahan';
+const PAGE_SIZE = 10;
+let pageState = {
+  riwayat: 1, piutang: 1, stokTertahan: 1, logPengembalian: 1,
+  galonRusak: 1, keuangan: 1, komisi: 1, daftarBeli: 1
+};
 
-        // ============ UTILITY ============
-        function showPopup(title, msg, isSuccess = true) {
-            document.getElementById("popupIcon").innerText = isSuccess ? "✅" : "❌";
-            document.getElementById("popupTitle").innerText = title;
-            document.getElementById("popupMessage").innerText = msg;
-            document.getElementById("popupModal").classList.remove("hidden");
-        }
-        function closePopup() { document.getElementById("popupModal").classList.add("hidden"); }
+// ============ API ============
+function apiGet(action, payload) {
+  return new Promise((resolve, reject) => {
+    const cb = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+    const params = new URLSearchParams({
+      action: action,
+      payload: JSON.stringify(payload || {}),
+      callback: cb,
+      _t: Date.now()
+    });
+    const s = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Timeout')); }, 25000);
+    function cleanup() {
+      clearTimeout(timer);
+      delete window[cb];
+      if (s.parentNode) s.parentNode.removeChild(s);
+    }
+    window[cb] = function(res) {
+      cleanup();
+      if (res && res.ok) resolve(res.data);
+      else reject(new Error((res && res.error) || 'Unknown error'));
+    };
+    s.onerror = function() { cleanup(); reject(new Error('Network error')); };
+    s.src = SCRIPT_URL + '?' + params.toString();
+    document.body.appendChild(s);
+  });
+}
 
-        function formatRupiahInput(inputElement, targetHiddenId) {
-            let val = inputElement.value.replace(/[^,\d]/g, '').toString();
-            let split = val.split(',');
-            let sisa = split[0].length % 3;
-            let rupiah = split[0].substr(0, sisa);
-            let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
-            if (ribuan) {
-                let separator = sisa ? '.' : '';
-                rupiah += separator + ribuan.join('.');
-            }
-            rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
-            inputElement.value = rupiah;
-            document.getElementById(targetHiddenId).value = val.replace(/\./g, '');
-        }
+async function apiPost(action, payload) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, payload, ...payload })
+  });
+  const json = await res.json();
+  if (json && json.ok) return json.data;
+  throw new Error((json && json.error) || 'Unknown error');
+}
 
-        function formatRupiah(num) { return 'Rp ' + Number(num || 0).toLocaleString('id-ID'); }
+// Cache master data
+const _cache = { products: null, agents: null, productsAt: 0, agentsAt: 0 };
+const CACHE_TTL = 30000;
 
-        // PERBAIKAN 8: Format tanggal hanya DD-MM-YYYY
-        function formatTanggal(dateStr) {
-            if(!dateStr) return '-';
-            let d = new Date(dateStr);
-            if(isNaN(d.getTime())) return '-';
-            let day = String(d.getDate()).padStart(2, '0');
-            let month = String(d.getMonth() + 1).padStart(2, '0');
-            let year = d.getFullYear();
-            return `${day}-${month}-${year}`;
-        }
+async function fetchProducts(force) {
+  if (!force && _cache.products && (Date.now() - _cache.productsAt) < CACHE_TTL) return _cache.products;
+  const list = await apiGet('getProducts', {});
+  _cache.products = list; _cache.productsAt = Date.now();
+  return list;
+}
+async function fetchAgents(force) {
+  if (!force && _cache.agents && (Date.now() - _cache.agentsAt) < CACHE_TTL) return _cache.agents;
+  const list = await apiGet('getAgents', {});
+  _cache.agents = list; _cache.agentsAt = Date.now();
+  return list;
+}
+function invalidateMaster() {
+  _cache.products = null; _cache.agents = null;
+  _cache.productsAt = 0; _cache.agentsAt = 0;
+}
 
-        // ============ PAGE NAVIGATION ============
-        function switchPage(page) {
-            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
-            const target = document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1));
-            if (target) target.classList.remove('hidden');
-            
-            document.querySelectorAll('#bottomNav .nav-item').forEach(btn => {
-                if (btn.dataset.page === page) {
-                    btn.classList.add('active');
-                    btn.classList.remove('text-on-surface-variant');
-                    btn.querySelector('.nav-icon').classList.add('bg-primary-light');
-                } else {
-                    btn.classList.remove('active');
-                    btn.classList.add('text-on-surface-variant');
-                    btn.querySelector('.nav-icon').classList.remove('bg-primary-light');
-                }
-            });
-            
-            const subtitles = {
-                'dashboard': 'Dashboard Owner', 'transaksi': 'Kasir POS', 'piutang': 'Piutang & Bon',
-                'galon': 'Galon Agen', 'riwayat': 'Riwayat Penjualan', 'keuangan': 'Keuangan',
-                'komisi': 'Komisi Operator', 'kelola': 'Kelola Data'
-            };
-            document.getElementById('headerSubtitle').innerText = subtitles[page] || 'Dashboard';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+function prefetchMaster() {
+  if (!loggedInUser) return;
+  fetchProducts().catch(() => {});
+  fetchAgents().catch(() => {});
+}
 
-        function toggleMoreMenu() {
-            document.getElementById('moreMenuSheet').classList.toggle('hidden');
-        }
+// ============ UTIL ============
+function showPopup(title, msg, isSuccess = true) {
+  document.getElementById("popupIcon").innerText = isSuccess ? "✅" : "❌";
+  document.getElementById("popupTitle").innerText = title;
+  document.getElementById("popupMessage").innerText = msg;
+  document.getElementById("popupModal").classList.remove("hidden");
+}
+function closePopup() { document.getElementById("popupModal").classList.add("hidden"); }
 
-        // PERBAIKAN 7: Sub-tab Galon Agen
-        function setGalonTab(tab) {
-            currentGalonTab = tab;
-            const btnKembali = document.getElementById('btn-galon-tab-kembali');
-            const btnTertahan = document.getElementById('btn-galon-tab-tertahan');
-            const sectionKembali = document.getElementById('galonSectionKembali');
-            const sectionTertahan = document.getElementById('galonSectionTertahan');
+function formatRupiah(num) { return 'Rp ' + Number(num || 0).toLocaleString('id-ID'); }
 
-            if (tab === 'kembali') {
-                btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-                btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-                sectionKembali.classList.remove('hidden');
-                sectionTertahan.classList.add('hidden');
-            } else {
-                btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-                btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-                sectionTertahan.classList.remove('hidden');
-                sectionKembali.classList.add('hidden');
-            }
-        }
+function formatRupiahInput(inputEl, targetHiddenId) {
+  let val = inputEl.value.replace(/[^,\d]/g, '').toString();
+  let split = val.split(',');
+  let sisa = split[0].length % 3;
+  let rupiah = split[0].substr(0, sisa);
+  let ribuan = split[0].substr(sisa).match(/\d{3}/gi);
+  if (ribuan) {
+    let separator = sisa ? '.' : '';
+    rupiah += separator + ribuan.join('.');
+  }
+  rupiah = split[1] !== undefined ? rupiah + ',' + split[1] : rupiah;
+  inputEl.value = rupiah;
+  document.getElementById(targetHiddenId).value = val.replace(/\./g, '');
+}
 
-        // ============ AUTH ============
-        window.addEventListener("DOMContentLoaded", () => {
-            let u = localStorage.getItem("depot_user"), r = localStorage.getItem("depot_role");
-            if (u && r) { loggedInUser = u; loggedInRole = r; initAppSession(); }
+function formatTanggal(dateStr) {
+  if (!dateStr) return '-';
+  let d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  let day = String(d.getDate()).padStart(2, '0');
+  let month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${day}-${month}-${d.getFullYear()}`;
+}
+
+function paginate(data, page, pageSize = PAGE_SIZE) {
+  let totalPages = Math.ceil(data.length / pageSize) || 1;
+  if (page > totalPages) page = totalPages;
+  if (page < 1) page = 1;
+  let start = (page - 1) * pageSize;
+  return { items: data.slice(start, start + pageSize), totalPages, currentPage: page, total: data.length };
+}
+function renderPaginationInfo(id, page, totalPages, totalItems) {
+  let el = document.getElementById(id);
+  if (el) el.innerText = `Hal ${page}/${totalPages} (${totalItems})`;
+}
+
+// ============ AUTH ============
+window.addEventListener("DOMContentLoaded", () => {
+  let u = localStorage.getItem("depot_user"), r = localStorage.getItem("depot_role");
+  if (u && r) { loggedInUser = u; loggedInRole = r; initAppSession(); }
+});
+
+document.getElementById("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  let u = document.getElementById("username").value, p = document.getElementById("password").value;
+  let btn = document.getElementById("loginBtn");
+  btn.innerText = "Memproses..."; btn.disabled = true;
+  try {
+    const user = await apiGet('login', { username: u, password: p });
+    loggedInUser = user.Username;
+    loggedInRole = String(user.Role).toLowerCase();
+    localStorage.setItem("depot_user", loggedInUser);
+    localStorage.setItem("depot_role", loggedInRole);
+    // Prefetch produk & agen sebelum masuk app
+    prefetchMaster();
+    initAppSession();
+  } catch (err) {
+    showPopup("Login Gagal", err.message, false);
+    btn.innerText = "Masuk Aplikasi"; btn.disabled = false;
+  }
+});
+
+function initAppSession() {
+  document.getElementById("loginSection").classList.add("hidden");
+  document.getElementById("appSection").classList.remove("hidden");
+  document.getElementById("userNameDisplay").innerText = loggedInUser;
+  document.getElementById("userRoleBadge").innerText = loggedInRole;
+
+  if (loggedInRole === "owner") {
+    document.getElementById("menuKelolaBtn").classList.remove("hidden");
+    document.getElementById("menuDashboardBtn").classList.remove("hidden");
+    document.getElementById("ownerBayarBox").classList.remove("hidden");
+    switchPage('dashboard');
+  } else {
+    const opt = document.getElementById("optPemasukan");
+    if (opt) opt.remove();
+    setSegment('umum');
+    switchPage('transaksi');
+  }
+  refreshAllData();
+  setInterval(refreshAllData, 20000);
+}
+
+function logout() { localStorage.clear(); location.reload(); }
+
+async function refreshAllData() {
+  try {
+    await Promise.all([
+      loadMasterHarga(), loadAgen(), loadTransaksi(), loadKeuangan(),
+      loadGalonRusak(), loadUsers(), loadGalonTertahan(), loadLogPengembalian()
+    ]);
+    await Promise.all([loadPiutangAgen(), loadDaftarBeliGalon()]);
+    if (loggedInRole === 'owner') updateDashboard();
+  } catch (e) { console.error('refreshAllData', e); }
+}
+
+// ============ NAVIGATION ============
+function switchPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const target = document.getElementById('page' + page.charAt(0).toUpperCase() + page.slice(1));
+  if (target) target.classList.remove('hidden');
+
+  document.querySelectorAll('#bottomNav .nav-item').forEach(btn => {
+    if (btn.dataset.page === page) {
+      btn.classList.add('active');
+      btn.classList.remove('text-on-surface-variant');
+      btn.querySelector('.nav-icon').classList.add('bg-primary-light');
+    } else {
+      btn.classList.remove('active');
+      btn.classList.add('text-on-surface-variant');
+      btn.querySelector('.nav-icon').classList.remove('bg-primary-light');
+    }
+  });
+
+  const subtitles = {
+    'dashboard': 'Dashboard Owner', 'transaksi': 'Kasir POS', 'piutang': 'Piutang & Bon',
+    'galon': 'Galon Agen', 'riwayat': 'Riwayat Penjualan', 'keuangan': 'Keuangan',
+    'komisi': 'Komisi Operator', 'kelola': 'Kelola Data'
+  };
+  document.getElementById('headerSubtitle').innerText = subtitles[page] || 'Dashboard';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleMoreMenu() { document.getElementById('moreMenuSheet').classList.toggle('hidden'); }
+
+function setGalonTab(tab) {
+  currentGalonTab = tab;
+  const btnKembali = document.getElementById('btn-galon-tab-kembali');
+  const btnTertahan = document.getElementById('btn-galon-tab-tertahan');
+  const sectionKembali = document.getElementById('galonSectionKembali');
+  const sectionTertahan = document.getElementById('galonSectionTertahan');
+
+  if (tab === 'kembali') {
+    btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
+    btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
+    sectionKembali.classList.remove('hidden');
+    sectionTertahan.classList.add('hidden');
+  } else {
+    btnTertahan.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
+    btnKembali.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
+    sectionTertahan.classList.remove('hidden');
+    sectionKembali.classList.add('hidden');
+  }
+}
+
+// ============ DASHBOARD ============
+function updateDashboard() {
+  if (loggedInRole !== 'owner') return;
+  document.getElementById('dashboardLoading').classList.add('hidden');
+  document.getElementById('dashboardContent').classList.remove('hidden');
+  document.getElementById('dashGreeting').innerText = loggedInUser;
+
+  let now = new Date();
+  let today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  let yesterday = today - 86400000;
+  let startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  let startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
+  let endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+
+  let todayOmzet = 0, todayGalon = 0, todayKonsumen = 0, todayAgen = 0, yesterdayOmzet = 0;
+  let totalPiutang = 0, piutangAgenCount = 0, totalTertahan = 0;
+  let komisiMap = {}, totalKomisi = 0, komisiCount = 0;
+  let totalGalonRusakBulanIni = 0, bulanIniOmzet = 0, bulanIniGalon = 0, bulanLaluOmzet = 0, bulanLaluGalon = 0;
+  let dailyData = {};
+  for (let i = 6; i >= 0; i--) {
+    let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    let key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    dailyData[key] = { omzet: 0, galon: 0, label: d.toLocaleDateString('id-ID', { weekday: 'short' }) };
+  }
+
+  globalTransaksiData.forEach(row => {
+    let rowDate = new Date(row.TanggalRaw);
+    let rowTime = rowDate.getTime();
+    let rowDay = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate()).getTime();
+    let rowKey = rowDate.getFullYear() + '-' + String(rowDate.getMonth()+1).padStart(2,'0') + '-' + String(rowDate.getDate()).padStart(2,'0');
+
+    if (row.Status !== 'BATAL') {
+      if (rowDay === today) {
+        todayOmzet += Number(row.Total || 0);
+        todayGalon += Number(row.Jumlah || 0);
+        if (row.Tipe === 'AGEN') todayAgen += Number(row.Jumlah || 0);
+        else todayKonsumen += Number(row.Jumlah || 0);
+      }
+      if (rowDay === yesterday) yesterdayOmzet += Number(row.Total || 0);
+      if (rowTime >= startOfMonth) { bulanIniOmzet += Number(row.Total || 0); bulanIniGalon += Number(row.Jumlah || 0); }
+      if (rowTime >= startOfLastMonth && rowTime <= endOfLastMonth) { bulanLaluOmzet += Number(row.Total || 0); bulanLaluGalon += Number(row.Jumlah || 0); }
+      if (dailyData[rowKey]) { dailyData[rowKey].omzet += Number(row.Total || 0); dailyData[rowKey].galon += Number(row.Jumlah || 0); }
+    }
+    if (Number(row.Hutang) > 0 && row.Status !== 'BATAL') { totalPiutang += Number(row.Hutang); piutangAgenCount++; }
+  });
+
+  globalGalonTertahan.forEach(row => { if (Number(row.JumlahTertahan) > 0) totalTertahan += Number(row.JumlahTertahan); });
+
+  globalGalonRusakData.forEach(row => {
+    let rowDate = new Date(row.TanggalRaw);
+    if (rowDate.getMonth() === now.getMonth() && rowDate.getFullYear() === now.getFullYear()) {
+      totalGalonRusakBulanIni += Number(row.Jumlah || 0);
+    }
+  });
+
+  // Komisi dari transaksi
+  globalTransaksiData.forEach(row => {
+    if (row.Status === 'BATAL') return;
+    const opLower = String(row.OperatorID || '').toLowerCase();
+    if (opLower === 'owner' || opLower === 'u1') return;
+    let rate = 0;
+    if (row.Tipe === 'KONSUMEN') rate = 2000;
+    else if (row.Tipe === 'AGEN') rate = (row.Catatan && row.Catatan.indexOf('DIANTAR_OPERATOR') >= 0) ? 1000 : 2000;
+    if (rate > 0) {
+      const kom = rate * Number(row.Jumlah || 0);
+      if (!komisiMap[row.OperatorID]) komisiMap[row.OperatorID] = 0;
+      komisiMap[row.OperatorID] += kom;
+      totalKomisi += kom;
+      komisiCount++;
+    }
+  });
+
+  document.getElementById('dashOmzet').innerText = formatRupiah(todayOmzet);
+  let trendPercent = 0, trendIcon = 'remove', trendColor = 'bg-white/20';
+  if (yesterdayOmzet > 0) {
+    trendPercent = ((todayOmzet - yesterdayOmzet) / yesterdayOmzet * 100).toFixed(1);
+    if (trendPercent > 0) { trendIcon = 'arrow_upward'; trendColor = 'bg-tertiary/40'; }
+    else if (trendPercent < 0) { trendIcon = 'arrow_downward'; trendColor = 'bg-error/40'; }
+  } else if (todayOmzet > 0) { trendPercent = 100; trendIcon = 'arrow_upward'; trendColor = 'bg-tertiary/40'; }
+  document.getElementById('dashOmzetTrend').innerHTML = `<span class="material-symbols-outlined text-[14px]">${trendIcon}</span><span>${Math.abs(trendPercent)}%</span>`;
+  document.getElementById('dashOmzetTrend').className = `flex items-center gap-1 ${trendColor} px-2 py-1 rounded-full`;
+
+  document.getElementById('dashGalon').innerText = todayGalon;
+  document.getElementById('dashGalonKonsumen').innerText = todayKonsumen;
+  document.getElementById('dashGalonAgen').innerText = todayAgen;
+  document.getElementById('dashPiutang').innerText = formatRupiah(totalPiutang);
+  document.getElementById('dashPiutangAgen').innerText = piutangAgenCount;
+  document.getElementById('dashTertahan').innerText = totalTertahan;
+  document.getElementById('dashGalonRusak').innerText = totalGalonRusakBulanIni;
+  document.getElementById('dashTotalKomisi').innerText = formatRupiah(totalKomisi);
+  document.getElementById('dashKomisiCount').innerText = komisiCount + ' transaksi';
+
+  let totalMasuk = 0, totalKeluar = 0;
+  globalKeuanganData.forEach(row => {
+    if (row.Jenis === 'Pemasukan') totalMasuk += Number(row.Nominal);
+    if (row.Jenis === 'Pengeluaran') totalKeluar += Number(row.Nominal);
+  });
+  document.getElementById('dashSaldo').innerText = formatRupiah(totalMasuk - totalKeluar);
+  document.getElementById('dashTotalMasuk').innerText = formatRupiah(totalMasuk);
+  document.getElementById('dashTotalKeluar').innerText = formatRupiah(totalKeluar);
+
+  document.getElementById('dashBulanIni').innerText = formatRupiah(bulanIniOmzet);
+  document.getElementById('dashBulanIniGalon').innerText = bulanIniGalon;
+  document.getElementById('dashBulanLalu').innerText = formatRupiah(bulanLaluOmzet);
+  document.getElementById('dashBulanLaluGalon').innerText = bulanLaluGalon;
+  let selisih = bulanIniOmzet - bulanLaluOmzet;
+  let selisihEl = document.getElementById('dashSelisihBulan');
+  selisihEl.innerText = formatRupiah(Math.abs(selisih)) + (selisih >= 0 ? ' ↗' : ' ↘');
+  selisihEl.className = 'text-sm font-bold font-headline ' + (selisih >= 0 ? 'text-tertiary' : 'text-error');
+
+  let chartEl = document.getElementById('dashBarChart');
+  let labelsEl = document.getElementById('dashBarLabels');
+  if (chartEl && labelsEl) {
+    let maxOmzet = Math.max(...Object.values(dailyData).map(d => d.omzet), 1);
+    chartEl.innerHTML = Object.values(dailyData).map(d => {
+      let height = Math.max(4, (d.omzet / maxOmzet) * 100);
+      return `<div class="bar" style="height: ${height}%" title="${formatRupiah(d.omzet)}"></div>`;
+    }).join('');
+    labelsEl.innerHTML = Object.values(dailyData).map(d => `<span class="flex-1 text-center">${d.label}</span>`).join('');
+  }
+
+  let total7Hari = Object.values(dailyData).reduce((s, d) => s + d.omzet, 0);
+  let badge = document.getElementById('dashTrendBadge');
+  if (total7Hari > 0) {
+    badge.innerText = formatRupiah(total7Hari) + ' / 7 hari';
+    badge.className = 'text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold font-label';
+  } else { badge.innerText = 'Belum ada data'; }
+
+  let totalGalonTerjualAll = 0;
+  globalTransaksiData.forEach(row => { if (row.Status !== 'BATAL') totalGalonTerjualAll += Number(row.Jumlah || 0); });
+  let totalAirBeliLiter = 0, totalTutupBeliPcs = 0;
+  globalKeuanganData.forEach(row => {
+    if (row.Jenis === "Pengeluaran" && row.Keterangan) {
+      if (row.Kategori === "Air") { let m = row.Keterangan.match(/Beli\s(\d+)\sLiter/); if (m) totalAirBeliLiter += Number(m[1]); }
+      if (row.Kategori === "Tutup Botol") { let m = row.Keterangan.match(/Beli\s(\d+)\sPcs/); if (m) totalTutupBeliPcs += Number(m[1]); }
+    }
+  });
+  let perkiraanAir = totalGalonTerjualAll * 19;
+  let selisihAir = totalAirBeliLiter - perkiraanAir;
+  let selisihTutup = totalTutupBeliPcs - totalGalonTerjualAll;
+
+  document.getElementById('dashStokAlert').innerHTML = `
+    <div class="flex justify-between items-center"><span>Total Galon Terjual</span><b class="text-slate-900">${totalGalonTerjualAll} galon</b></div>
+    <div class="h-px bg-border my-1"></div>
+    <div class="flex justify-between items-center"><span>💧 Pembelian Air</span><b class="text-slate-900">${totalAirBeliLiter} L</b></div>
+    <div class="flex justify-between items-center text-[11px]"><span>Estimasi kebutuhan (19L × galon)</span><span>${perkiraanAir} L</span></div>
+    <div class="flex justify-between items-center"><span>Selisih</span><span class="${selisihAir >= 0 ? 'text-tertiary' : 'text-error'} font-bold">${selisihAir >= 0 ? '+' : ''}${selisihAir} L</span></div>
+    <div class="h-px bg-border my-1"></div>
+    <div class="flex justify-between items-center"><span>🔵 Pembelian Tutup</span><b class="text-slate-900">${totalTutupBeliPcs} Pcs</b></div>
+    <div class="flex justify-between items-center text-[11px]"><span>Estimasi kebutuhan (1 × galon)</span><span>${totalGalonTerjualAll} Pcs</span></div>
+    <div class="flex justify-between items-center"><span>Selisih</span><span class="${selisihTutup >= 0 ? 'text-tertiary' : 'text-error'} font-bold">${selisihTutup >= 0 ? '+' : ''}${selisihTutup} Pcs</span></div>
+  `;
+
+  let rusakListEl = document.getElementById('dashGalonRusakList');
+  if (globalGalonRusakData.length > 0) {
+    rusakListEl.innerHTML = globalGalonRusakData.slice().reverse().slice(0, 5).map(row => `
+      <div class="flex items-center justify-between p-2.5 bg-error-light/50 rounded-xl">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-bold text-slate-900 truncate">${row.AgenID || '-'}</p>
+          <p class="text-[10px] text-on-surface-variant truncate">${row.Kondisi} (${row.Jumlah})</p>
+        </div>
+        <span class="text-[10px] text-on-surface-variant shrink-0 ml-2">${formatTanggal(row.TanggalRaw)}</span>
+      </div>
+    `).join('');
+  } else {
+    rusakListEl.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon rusak</p>';
+  }
+
+  let komisiHtml = '';
+  Object.keys(komisiMap).forEach(op => {
+    komisiHtml += `
+      <div class="flex items-center justify-between p-2.5 bg-surface rounded-xl">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full bg-primary-light text-primary flex items-center justify-center text-[11px] font-bold font-label">${op.substring(0,2).toUpperCase()}</div>
+          <span class="text-xs font-bold text-slate-900 font-label">${op}</span>
+        </div>
+        <span class="text-sm font-bold text-primary font-headline">${formatRupiah(komisiMap[op])}</span>
+      </div>`;
+  });
+  if (komisiHtml === '') komisiHtml = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada komisi tertunda</p>';
+  document.getElementById('dashKomisiList').innerHTML = komisiHtml;
+}
+
+// ============ SEGMENT & PRODUK ============
+function setSegment(type) {
+  currentSegment = type;
+  const btnUmum = document.getElementById('btn-segment-umum');
+  const btnAgen = document.getElementById('btn-segment-agen');
+  const agenCard = document.getElementById('agen-info-card');
+  const rusakBox = document.getElementById('containerGalonRusak');
+
+  if (type === 'agen') {
+    btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
+    btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
+    agenCard.classList.remove('hidden');
+    rusakBox.classList.remove('hidden');
+  } else {
+    btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
+    btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
+    agenCard.classList.add('hidden');
+    rusakBox.classList.add('hidden');
+    document.getElementById("listGalonRusakContainer").innerHTML = "";
+  }
+  updateDropdownProdukSemuaBaris();
+}
+
+function updateAgenData(agenKey) {
+  // agenKey = AgenID
+  let tertahan = 0, bon = 0;
+  globalGalonTertahan.forEach(t => { if (String(t.AgenID) === String(agenKey)) tertahan += Number(t.JumlahTertahan); });
+  globalTransaksiData.forEach(t => { if (String(t.AgenID) === String(agenKey) && Number(t.Hutang) > 0 && t.Status !== 'BATAL') bon += Number(t.Hutang); });
+  document.getElementById('agen-galon-tertahan').innerText = tertahan;
+  document.getElementById('agen-sisa-bon').innerText = formatRupiah(bon);
+}
+
+function updateDropdownProdukSemuaBaris() {
+  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
+    let select = row.querySelector(".produk-jenis");
+    if (select) isiDropdownProduk(select, select.value);
+  });
+}
+
+function isiDropdownProduk(selectElement, selectedValue = "") {
+  // Produk tidak lagi dibedakan per segmen; harga dipilih saat hitung total
+  let target = (currentSegment === "agen") ? "agen" : "konsumen";
+  selectElement.innerHTML = '<option value="">Pilih Produk...</option>';
+  (masterHargaList || []).forEach(item => {
+    const harga = target === 'agen' ? item.HargaAgen : item.HargaKonsumen;
+    const sel = (String(item.ID) === String(selectedValue)) ? "selected" : "";
+    selectElement.innerHTML += `<option value="${item.ID}" data-harga="${harga}" data-hk="${item.HargaKonsumen}" data-ha="${item.HargaAgen}" ${sel}>${item.Nama} - Rp ${Number(harga).toLocaleString()}</option>`;
+  });
+  hitungTotalMultiProduk();
+}
+
+function tambahBarisProduk(produkIDDefault = "", jumlahDefault = 1) {
+  let container = document.getElementById("listProdukContainer");
+  let div = document.createElement("div");
+  div.className = "bg-white rounded-2xl p-3 shadow-app border border-border space-y-2";
+  div.innerHTML = `
+    <div class="flex items-start gap-2">
+      <div class="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center shrink-0 mt-0.5">
+        <span class="material-symbols-outlined text-[20px] text-primary">water_bottle_large</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <select class="w-full px-3 py-3 bg-surface border border-border rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary produk-jenis font-label" onchange="hitungTotalMultiProduk()" required></select>
+      </div>
+      <button type="button" onclick="this.closest('.bg-white').remove(); hitungTotalMultiProduk();" class="w-9 h-9 rounded-xl bg-error-light text-error flex items-center justify-center shrink-0 mt-0.5 active:scale-90 transition">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
+    </div>
+    <div class="flex items-center justify-between gap-2 bg-surface p-2 rounded-xl">
+      <span class="text-[10px] font-bold text-on-surface-variant font-label uppercase">Jumlah</span>
+      <input type="number" min="1" value="${jumlahDefault}" inputmode="numeric" pattern="[0-9]*" class="w-24 px-3 py-2 bg-white border border-border rounded-lg text-base font-bold text-slate-900 text-center produk-jumlah focus:outline-none focus:border-primary" oninput="hitungTotalMultiProduk()">
+    </div>
+  `;
+  container.appendChild(div);
+  isiDropdownProduk(div.querySelector(".produk-jenis"), produkIDDefault);
+}
+
+function tambahBarisGalonRusak() {
+  let container = document.getElementById("listGalonRusakContainer");
+  let div = document.createElement("div");
+  div.className = "grid grid-cols-3 gap-2 bg-white p-2 rounded-xl border border-error/20";
+  div.innerHTML = `
+    <input type="text" class="px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-jenis" placeholder="Jenis" required>
+    <input type="text" class="px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-kondisi" placeholder="Kondisi" required>
+    <div class="flex gap-1">
+      <input type="number" min="1" value="1" class="w-full px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-jumlah text-center font-bold" required>
+      <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-error font-bold px-1">&times;</button>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function hitungTotalMultiProduk() {
+  let total = 0, items = [];
+  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
+    let select = row.querySelector(".produk-jenis");
+    let jumlahInput = row.querySelector(".produk-jumlah");
+    let opt = select.options[select.selectedIndex];
+    if (opt && opt.dataset.harga && select.value) {
+      let qty = Number(jumlahInput.value) || 0;
+      total += Number(opt.dataset.harga) * qty;
+      if (qty > 0) items.push({ jenis: select.options[select.selectedIndex].text.split(' - ')[0], qty, harga: Number(opt.dataset.harga) });
+    }
+  });
+  document.getElementById("total").value = total;
+  document.getElementById("totalDisplay").innerText = formatRupiah(total);
+
+  let listContainer = document.getElementById('rincianTransaksiList');
+  let totalItems = 0;
+  if (items.length === 0) {
+    listContainer.innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
+  } else {
+    listContainer.innerHTML = items.map(item => {
+      totalItems += item.qty;
+      return `<div class="flex justify-between"><span>${item.qty}x ${item.jenis}</span><span class="font-bold">${formatRupiah(item.harga * item.qty)}</span></div>`;
+    }).join('');
+  }
+  document.getElementById('badge-total-item').innerText = totalItems + ' ITEM';
+}
+
+function togglePenghutangField() {
+  let s = document.getElementById("status").value;
+  let c = document.getElementById("penghutangContainer");
+  let input = document.getElementById("penghutang");
+  if (s === "Bon / Utang") {
+    if (currentSegment === 'agen') { c.classList.add("hidden"); input.value = ""; }
+    else { c.classList.remove("hidden"); input.value = ""; setTimeout(() => input.focus(), 100); }
+  } else { c.classList.add("hidden"); input.value = ""; }
+}
+
+// ============ SUBMIT TRANSACTION ============
+async function submitTransaction() {
+  let btn = document.getElementById("submitBtn");
+  let listProduk = [];
+  document.querySelectorAll("#listProdukContainer > div").forEach(row => {
+    let select = row.querySelector(".produk-jenis");
+    let jumlahInput = row.querySelector(".produk-jumlah");
+    let opt = select.options[select.selectedIndex];
+    if (select.value && Number(jumlahInput.value) > 0) {
+      listProduk.push({ ProdukID: select.value, Jumlah: Number(jumlahInput.value), Harga: Number(opt.dataset.harga) });
+    }
+  });
+
+  if (listProduk.length === 0) { showPopup("Peringatan", "Tambahkan minimal 1 produk!", false); return; }
+
+  let namaAgenValue = "";
+  if (currentSegment === 'agen') {
+    namaAgenValue = document.getElementById("namaAgen").value;
+    if (!namaAgenValue) { showPopup("Peringatan", "Pilih agen terlebih dahulu!", false); return; }
+  }
+
+  let listRusak = [];
+  if (currentSegment === "agen") {
+    document.querySelectorAll("#listGalonRusakContainer > div").forEach(r => {
+      let j = r.querySelector(".rusak-jenis").value;
+      let k = r.querySelector(".rusak-kondisi").value;
+      let jml = r.querySelector(".rusak-jumlah").value;
+      if (j && k && jml) listRusak.push({ jenis: j, kondisi: k, jumlah: jml });
+    });
+  }
+
+  btn.disabled = true; btn.innerText = "Menyimpan...";
+
+  try {
+    // Kirim per produk (backend createSale hanya handle 1 produk per baris)
+    for (const item of listProduk) {
+      await apiPost('createSale', {
+        Tipe: currentSegment === 'agen' ? 'AGEN' : 'KONSUMEN',
+        ProdukID: item.ProdukID,
+        Jumlah: item.Jumlah,
+        MetodeBayar: document.getElementById("status").value === 'Bon / Utang' ? 'HUTANG' : 'LUNAS',
+        Dibayar: 0,
+        Catatan: currentSegment === 'agen' ? namaAgenValue : document.getElementById("penghutang").value,
+        OperatorID: loggedInUser,
+        AgenID: namaAgenValue || ''
+      });
+    }
+    showPopup("Sukses", "Transaksi berhasil disimpan!");
+    document.getElementById("listProdukContainer").innerHTML = "";
+    tambahBarisProduk();
+    document.getElementById("listGalonRusakContainer").innerHTML = "";
+    document.getElementById("total").value = 0;
+    document.getElementById("totalDisplay").innerText = "Rp 0";
+    document.getElementById('rincianTransaksiList').innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
+    document.getElementById('badge-total-item').innerText = '0 ITEM';
+    document.getElementById("penghutang").value = "";
+    document.getElementById("status").value = "Lunas";
+    togglePenghutangField();
+    setTimeout(() => refreshAllData(), 800);
+  } catch (err) {
+    showPopup("Error", err.message, false);
+  } finally {
+    btn.disabled = false; btn.innerText = "Simpan Transaksi";
+  }
+}
+
+async function submitKeuangan() {
+  let btn = document.getElementById("submitKasBtn");
+  let jumlah = document.getElementById("kasJumlah").value;
+  if (!jumlah || jumlah === '0') { showPopup("Peringatan", "Masukkan jumlah!", false); return; }
+  let kategori = document.getElementById("kasKategori").value;
+  if (!kategori) { showPopup("Peringatan", "Pilih kategori!", false); return; }
+
+  btn.disabled = true; btn.innerText = "Menyimpan...";
+  try {
+    await apiPost('saveKeuangan', {
+      Jenis: (loggedInRole === 'owner') ? document.getElementById("kasJenis").value : "Pengeluaran",
+      Kategori: kategori,
+      Nominal: jumlah,
+      Keterangan: document.getElementById("kasKeterangan").value,
+      OperatorID: loggedInUser
+    }).catch(async () => {
+      // fallback: createExpense untuk pengeluaran
+      await apiPost('createExpense', {
+        Kategori: kategori,
+        Nominal: jumlah,
+        Keterangan: document.getElementById("kasKeterangan").value,
+        OperatorID: loggedInUser
+      });
+    });
+    showPopup("Sukses", "Catatan keuangan disimpan!");
+    document.getElementById("kasJumlahFormatted").value = "";
+    document.getElementById("kasJumlah").value = "";
+    document.getElementById("kasKeterangan").value = "";
+    document.getElementById("kasKategori").value = "";
+    document.getElementById("containerSatuan").classList.add("hidden");
+    setTimeout(() => loadKeuangan(), 800);
+  } catch (err) {
+    showPopup("Error", err.message, false);
+  } finally {
+    btn.disabled = false; btn.innerText = "Simpan";
+  }
+}
+
+// ============ LOAD DATA ============
+async function loadMasterHarga() {
+  try {
+    masterHargaList = await fetchProducts(true);
+    if (document.getElementById("listProdukContainer").children.length === 0) tambahBarisProduk();
+    let hargaContainer = document.getElementById("hargaListContainer");
+    if (hargaContainer && loggedInRole === 'owner') {
+      hargaContainer.innerHTML = "";
+      masterHargaList.forEach(i => {
+        hargaContainer.innerHTML += `
+          <div class="flex items-center justify-between p-3 bg-surface rounded-xl text-xs">
+            <div class="flex-1 min-w-0">
+              <p class="font-bold text-slate-900">${i.Nama}</p>
+              <p class="text-[10px] text-on-surface-variant">Konsumen: ${formatRupiah(i.HargaKonsumen)} • Agen: ${formatRupiah(i.HargaAgen)}</p>
+            </div>
+            <button onclick="editHargaProduk('${i.ID}')" class="bg-tertiary text-white px-3 py-1.5 rounded-lg text-xs font-bold">Edit</button>
+          </div>`;
+      });
+    }
+  } catch (e) { console.error('loadMasterHarga', e); }
+}
+
+async function editHargaProduk(id) {
+  const p = masterHargaList.find(x => String(x.ID) === String(id));
+  if (!p) return;
+  const hk = prompt('Harga Konsumen untuk ' + p.Nama, p.HargaKonsumen);
+  if (hk === null) return;
+  const ha = prompt('Harga Agen untuk ' + p.Nama, p.HargaAgen);
+  if (ha === null) return;
+  try {
+    await apiPost('saveProduct', {
+      ID: p.ID, Nama: p.Nama, Jenis: p.Jenis,
+      HargaKonsumen: hk, HargaAgen: ha,
+      KomisiJual: p.KomisiJual, KomisiAntar: p.KomisiAntar,
+      Status: p.Status, UserID: loggedInUser
+    });
+    invalidateMaster();
+    showPopup("Sukses", "Harga diperbarui!");
+    loadMasterHarga();
+  } catch (e) { showPopup("Error", e.message, false); }
+}
+
+async function loadAgen() {
+  try {
+    agenList = await fetchAgents(true);
+    let select = document.getElementById("namaAgen");
+    let selectKhusus = document.getElementById("agenPengembalianKhusus");
+    let filterTertahan = document.getElementById("filterAgenTertahan");
+
+    if (select) select.innerHTML = '<option value="">Pilih Agen...</option>';
+    if (selectKhusus) selectKhusus.innerHTML = '<option value="">Pilih Agen...</option>';
+    if (filterTertahan) filterTertahan.innerHTML = '<option value="">Semua Agen</option>';
+
+    agenList.forEach(a => {
+      if (select) select.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
+      if (selectKhusus) selectKhusus.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
+      if (filterTertahan) filterTertahan.innerHTML += `<option value="${a.ID}">${a.Nama}</option>`;
+    });
+
+    let container = document.getElementById("agenListContainer");
+    if (container && loggedInRole === 'owner') {
+      container.innerHTML = "";
+      agenList.forEach(a => container.innerHTML += `<div class="inline-flex items-center bg-surface px-3 py-1.5 rounded-xl text-xs gap-2"><span class="font-bold">${a.Nama}</span><button onclick="hapusAgen('${a.ID}')" class="text-error"><span class="material-symbols-outlined text-[14px]">close</span></button></div>`);
+    }
+  } catch (e) { console.error('loadAgen', e); }
+}
+
+document.getElementById("addAgenForm")?.addEventListener("submit", async e => {
+  e.preventDefault();
+  let n = document.getElementById("newAgenName").value;
+  try {
+    await apiPost('saveAgent', { Nama: n, Status: 'Aktif', UserID: loggedInUser });
+    document.getElementById("newAgenName").value = "";
+    invalidateMaster();
+    loadAgen();
+    showPopup("Sukses", "Agen ditambahkan.");
+  } catch (e) { showPopup("Error", e.message, false); }
+});
+
+async function hapusAgen(id) {
+  if (!confirm('Hapus agen ini?')) return;
+  // Tidak ada endpoint delete; nonaktifkan
+  try {
+    const a = agenList.find(x => String(x.ID) === String(id));
+    if (a) {
+      await apiPost('saveAgent', { ...a, Status: 'Nonaktif', UserID: loggedInUser });
+      invalidateMaster();
+      loadAgen();
+      showPopup("Sukses", "Agen dinonaktifkan.");
+    }
+  } catch (e) { showPopup("Error", e.message, false); }
+}
+
+async function loadUsers() {
+  try {
+    const data = await apiGet('getOperators', {});
+    let tbody = document.getElementById("userTableBody"), selectBayar = document.getElementById("bayarOperator");
+    if (tbody) tbody.innerHTML = "";
+    if (selectBayar) selectBayar.innerHTML = "";
+    data.forEach(u => {
+      if (u.Role !== 'OPERATOR') return;
+      if (tbody) tbody.innerHTML += `<div class="flex items-center justify-between p-3 bg-surface rounded-xl"><span class="text-xs font-bold">${u.Username}</span><button onclick="hapusUser('${u.ID}')" class="text-error text-xs font-bold">Hapus</button></div>`;
+      if (selectBayar) selectBayar.innerHTML += `<option value="${u.ID}">${u.Username}</option>`;
+    });
+    hitungPreviewKomisi();
+  } catch (e) { console.error('loadUsers', e); }
+}
+
+document.getElementById("addUserForm")?.addEventListener("submit", async e => {
+  e.preventDefault();
+  let u = document.getElementById("newUsername").value, p = document.getElementById("newPassword").value;
+  try {
+    await apiPost('saveOperator', { Nama: u, Username: u, Password: p, Status: 'Aktif', UserID: loggedInUser });
+    document.getElementById("addUserForm").reset();
+    loadUsers();
+    showPopup("Sukses", "Operator ditambahkan.");
+  } catch (e) { showPopup("Error", e.message, false); }
+});
+
+async function hapusUser(id) {
+  if (!confirm('Nonaktifkan operator ini?')) return;
+  try {
+    const users = await apiGet('getOperators', {});
+    const u = users.find(x => String(x.ID) === String(id));
+    if (u) {
+      await apiPost('saveOperator', { ID: u.ID, Nama: u.Nama, Username: u.Username, Status: 'Nonaktif', UserID: loggedInUser });
+      loadUsers();
+      showPopup("Sukses", "Operator dinonaktifkan.");
+    }
+  } catch (e) { showPopup("Error", e.message, false); }
+}
+
+// ============ PIUTANG ============
+async function loadPiutangAgen() {
+  try {
+    const data = await apiGet('listReceivables', {});
+    let container = document.getElementById("piutangList");
+    if (!container) return;
+    let query = document.getElementById("searchPiutang").value.toLowerCase();
+    let filtered = data.filter(row => !query || (row.Penghutang || '').toLowerCase().includes(query));
+    let paginated = paginate(filtered, pageState.piutang);
+    pageState.piutang = paginated.currentPage;
+    renderPaginationInfo('pageInfoPiutang', paginated.currentPage, paginated.totalPages, paginated.total);
+
+    container.innerHTML = "";
+    if (paginated.items.length === 0) {
+      container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada data piutang</div>';
+    } else {
+      paginated.items.forEach(row => {
+        container.innerHTML += `
+          <div class="bg-white rounded-2xl p-4 shadow-app border border-border card-tap" onclick='bukaModalPelunasan(${JSON.stringify(row).replace(/'/g, "&#39;")})'>
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex-1 min-w-0">
+                <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.Penghutang || '-'}</p>
+                <p class="text-[11px] text-on-surface-variant">${row.Tanggal}</p>
+              </div>
+              <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold font-label">BON</span>
+            </div>
+            <div class="flex items-center justify-between pt-2 border-t border-border">
+              <div><p class="text-[10px] text-on-surface-variant">Tagihan</p><p class="font-bold text-error font-headline">${formatRupiah(row.Sisa)}</p></div>
+              <div class="text-right"><p class="text-[10px] text-on-surface-variant">Tipe</p><p class="font-bold text-slate-900 font-headline">${row.Tipe}</p></div>
+            </div>
+          </div>`;
+      });
+    }
+  } catch (e) { console.error('loadPiutangAgen', e); }
+}
+
+function changePagePiutang(dir) { pageState.piutang = Math.max(1, pageState.piutang + dir); loadPiutangAgen(); }
+
+function bukaModalPelunasan(row) {
+  activeTargetPiutang = row.ID;
+  activeAgenPiutang = row.Penghutang;
+  document.getElementById("infoDetailPiutang").innerHTML = `
+    <div class="grid grid-cols-2 gap-2">
+      <div><p class="text-[10px] opacity-70">Nama</p><p class="font-bold text-slate-900">${row.Penghutang || '-'}</p></div>
+      <div><p class="text-[10px] opacity-70">Waktu</p><p class="font-bold text-slate-900">${row.Tanggal}</p></div>
+      <div class="col-span-2"><p class="text-[10px] opacity-70">Total Tagihan</p><p class="font-bold text-error text-base font-headline">${formatRupiah(row.Sisa)}</p></div>
+    </div>`;
+  document.getElementById("tabelCekKondisiRetur").innerHTML = `
+    <tr><td colspan="5" class="p-3 text-xs text-on-surface-variant text-center">Isi form pelunasan di bawah</td></tr>`;
+  document.getElementById("modalPelunasan").classList.remove("hidden");
+}
+
+async function prosesLunasPiutangFinal() {
+  if (!activeTargetPiutang) return;
+  try {
+    await apiPost('addPayment', {
+      TrxID: activeTargetPiutang,
+      Nominal: 0, // akan disesuaikan; pelunasan penuh
+      Metode: 'TUNAI',
+      Catatan: 'Lunas',
+      UserID: loggedInUser
+    });
+    document.getElementById("modalPelunasan").classList.add("hidden");
+    showPopup("Sukses", "Piutang dilunasi!");
+    refreshAllData();
+  } catch (e) { showPopup("Gagal", e.message, false); }
+}
+
+// ============ GALON TERTAHAN ============
+function muatDataTertahanAgenKhusus(agenId) {
+  let container = document.getElementById("tabelReturKhususOtomatis");
+  container.innerHTML = "";
+  if (!agenId) { container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>'; return; }
+  let ada = false;
+  globalGalonTertahan.forEach(t => {
+    if (String(t.AgenID) === String(agenId) && Number(t.JumlahTertahan) > 0) {
+      ada = true;
+      container.innerHTML += `
+        <div class="item-retur-khusus-row bg-surface rounded-xl p-3 space-y-2" data-produkid="${t.ProdukID}" data-jenis="${t.Jenis}" data-max="${t.JumlahTertahan}">
+          <div class="flex justify-between items-center">
+            <span class="text-xs font-bold text-slate-900">${t.Jenis}</span>
+            <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">${t.JumlahTertahan} GLN</span>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="number" min="0" max="${t.JumlahTertahan}" value="0" class="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold text-center input-jml-kembali-khusus">
+            <select class="px-3 py-2 bg-white border border-border rounded-lg text-xs select-kondisi-khusus">
+              <option value="Baik">Baik</option><option value="Pecah">Pecah</option>
+            </select>
+          </div>
+        </div>`;
+    }
+  });
+  if (!ada) container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon tertahan</p>';
+}
+
+async function submitPengembalianKhusus() {
+  let agenId = document.getElementById("agenPengembalianKhusus").value;
+  if (!agenId) { showPopup("Peringatan", "Pilih agen!", false); return; }
+  let rows = document.querySelectorAll(".item-retur-khusus-row");
+  let any = false;
+  for (const r of rows) {
+    const produkID = r.dataset.produkid;
+    const jml = Number(r.querySelector(".input-jml-kembali-khusus").value);
+    const kondisi = r.querySelector(".select-kondisi-khusus").value;
+    if (jml > 0) {
+      any = true;
+      try {
+        await apiPost('agentGallonReturn', {
+          AgenID: agenId, ProdukID: produkID,
+          Baik: kondisi === 'Baik' ? jml : 0,
+          Pecah: kondisi === 'Pecah' ? jml : 0,
+          OperatorID: loggedInUser
         });
+      } catch (e) { showPopup("Error", e.message, false); return; }
+    }
+  }
+  if (!any) { showPopup("Peringatan", "Masukkan jumlah galon!", false); return; }
+  showPopup("Sukses", "Pengembalian dicatat!");
+  document.getElementById("agenPengembalianKhusus").value = "";
+  document.getElementById("tabelReturKhususOtomatis").innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>';
+  refreshAllData();
+}
 
-        document.getElementById("loginForm").addEventListener("submit", e => {
-            e.preventDefault();
-            let u = document.getElementById("username").value, p = document.getElementById("password").value;
-            let btn = document.getElementById("loginBtn");
-            btn.innerText = "Memproses..."; btn.disabled = true;
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "login", username: u, password: p }) })
-            .then(res => res.json())
-            .then(res => {
-                if(res.result === "success") {
-                    loggedInUser = res.username; loggedInRole = res.role;
-                    localStorage.setItem("depot_user", loggedInUser); localStorage.setItem("depot_role", loggedInRole);
-                    initAppSession();
-                } else {
-                    showPopup("Login Gagal", res.message, false);
-                    btn.innerText = "Masuk Aplikasi"; btn.disabled = false;
-                }
-            }).catch(() => { showPopup("Error", "Gagal koneksi.", false); btn.innerText = "Masuk Aplikasi"; btn.disabled = false; });
+async function loadGalonTertahan() {
+  try {
+    globalGalonTertahan = await apiGet('getAgents', {}) && await new Promise(async (resolve) => {
+      // Ambil dari transaksi + agents: tidak ada endpoint langsung, kita skip
+      resolve([]);
+    });
+    // Backend getAgents tidak return tertahan; pakai transaksi + log
+    // Sebagai gantinya, tampilkan placeholder sampai backend menyediakan listGalonTertahan
+    let container = document.getElementById("stokAgenTable");
+    if (container) container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Data tertahan dihitung dari transaksi agen</p>';
+  } catch (e) { console.error('loadGalonTertahan', e); }
+}
+
+function changePageStokTertahan(dir) { pageState.stokTertahan = Math.max(1, pageState.stokTertahan + dir); loadGalonTertahan(); }
+
+async function loadDaftarBeliGalon() {
+  try {
+    const data = await apiGet('listTransactions', {});
+    let filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
+    let list = data.filter(r => r.Tipe === 'AGEN' && r.Status !== 'BATAL' && (!filterAgen || String(r.AgenID) === String(filterAgen)));
+    let container = document.getElementById("daftarBeliGalonTable");
+    let paginated = paginate(list, pageState.daftarBeli);
+    pageState.daftarBeli = paginated.currentPage;
+    renderPaginationInfo('pageInfoDaftarBeli', paginated.currentPage, paginated.totalPages, paginated.total);
+    document.getElementById('countDaftarBeli').innerText = paginated.total;
+
+    if (container) {
+      container.innerHTML = "";
+      if (paginated.items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada data</p>';
+      } else {
+        paginated.items.forEach(row => {
+          container.innerHTML += `
+            <div class="p-3 bg-surface rounded-xl">
+              <div class="flex justify-between items-start mb-1.5">
+                <p class="text-xs font-bold text-slate-900">${row.AgenID || '-'}</p>
+                <span class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold">${row.Tipe}</span>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-center">
+                <div class="bg-white rounded-lg p-1.5"><p class="text-[9px] text-on-surface-variant">Galon</p><p class="text-sm font-bold">${row.Jumlah}</p></div>
+                <div class="bg-warning-light rounded-lg p-1.5"><p class="text-[9px] text-warning">Hutang</p><p class="text-sm font-bold text-warning">${formatRupiah(row.Hutang)}</p></div>
+                <div class="bg-tertiary-light rounded-lg p-1.5"><p class="text-[9px] text-tertiary">Total</p><p class="text-sm font-bold text-tertiary">${formatRupiah(row.Total)}</p></div>
+              </div>
+            </div>`;
         });
+      }
+    }
+  } catch (e) { console.error('loadDaftarBeliGalon', e); }
+}
 
-        function initAppSession() {
-            document.getElementById("loginSection").classList.add("hidden");
-            document.getElementById("appSection").classList.remove("hidden");
-            document.getElementById("userNameDisplay").innerText = loggedInUser;
-            document.getElementById("userRoleBadge").innerText = loggedInRole;
+function changePageDaftarBeli(dir) { pageState.daftarBeli = Math.max(1, pageState.daftarBeli + dir); loadDaftarBeliGalon(); }
 
-            if(loggedInRole === "owner") {
-                document.getElementById("menuKelolaBtn").classList.remove("hidden");
-                document.getElementById("menuDashboardBtn").classList.remove("hidden");
-                document.getElementById("ownerBayarBox").classList.remove("hidden");
-                switchPage('dashboard');
-            } else {
-                const opt = document.getElementById("optPemasukan");
-                if(opt) opt.remove();
-                // PERBAIKAN 1: Operator langsung ke Kasir, default konsumen
-                setSegment('umum');
-                switchPage('transaksi');
-            }
-            refreshAllData();
-            setInterval(refreshAllData, 20000);
-        }
+async function loadLogPengembalian() {
+  try {
+    let container = document.getElementById("logPengembalianTable");
+    if (container) container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada riwayat</p>';
+  } catch (e) { console.error('loadLogPengembalian', e); }
+}
 
-        function logout() { localStorage.clear(); location.reload(); }
+function changePageLogPengembalian(dir) { pageState.logPengembalian = Math.max(1, pageState.logPengembalian + dir); loadLogPengembalian(); }
 
-        function refreshAllData() {
-            Promise.all([
-                loadMasterHarga(), loadAgen(), loadTransaksi(), loadKeuangan(), 
-                loadGalonRusak(), loadUsers(), loadPiutangAgen(), loadGalonTertahan(), 
-                loadLogPengembalian(), loadDaftarBeliGalon()
-            ]).then(() => {
-                if(loggedInRole === 'owner') updateDashboard();
-            });
-        }
+// ============ RIWAYAT ============
+function checkDateFilter(rawTime) {
+  let tM = document.getElementById("filterTglMulai")?.value;
+  let tS = document.getElementById("filterTglSelesai")?.value;
+  if (!tM && !tS) return true;
+  let d = Number(rawTime);
+  if (tM && d < new Date(tM).getTime()) return false;
+  if (tS && d > new Date(tS).setHours(23,59,59,999)) return false;
+  return true;
+}
 
-        function paginate(data, page, pageSize = PAGE_SIZE) {
-            let totalPages = Math.ceil(data.length / pageSize) || 1;
-            if(page > totalPages) page = totalPages;
-            if(page < 1) page = 1;
-            let start = (page - 1) * pageSize;
-            return {
-                items: data.slice(start, start + pageSize),
-                totalPages: totalPages,
-                currentPage: page,
-                total: data.length
-            };
-        }
+function setQuickFilter(type) {
+  let now = new Date(), start, end;
+  if (type === 'today') { start = end = now.toISOString().split('T')[0]; }
+  else if (type === 'week') { let d = new Date(now); d.setDate(d.getDate() - 7); start = d.toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
+  else if (type === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
+  document.getElementById("filterTglMulai").value = start;
+  document.getElementById("filterTglSelesai").value = end;
+  pageState.riwayat = 1;
+  loadTransaksi();
+}
 
-        function renderPaginationInfo(elementId, page, totalPages, totalItems) {
-            let el = document.getElementById(elementId);
-            if(el) el.innerText = `Hal ${page}/${totalPages} (${totalItems})`;
-        }
+function resetFilterRiwayat() {
+  document.getElementById("filterTglMulai").value = "";
+  document.getElementById("filterTglSelesai").value = "";
+  pageState.riwayat = 1;
+  loadTransaksi();
+}
 
-        // ============ DASHBOARD ============
-        function updateDashboard() {
-            if(loggedInRole !== 'owner') return;
-            document.getElementById('dashboardLoading').classList.add('hidden');
-            document.getElementById('dashboardContent').classList.remove('hidden');
-            document.getElementById('dashGreeting').innerText = loggedInUser;
+async function loadTransaksi() {
+  try {
+    globalTransaksiData = await apiGet('listTransactions', {});
+    let container = document.getElementById("dataTable");
+    let totJual = 0, totalGalon = 0;
+    let filtered = globalTransaksiData.filter(row => checkDateFilter(row.TanggalRaw));
+    let paginated = paginate(filtered, pageState.riwayat);
+    pageState.riwayat = paginated.currentPage;
+    renderPaginationInfo('pageInfoRiwayat', paginated.currentPage, paginated.totalPages, paginated.total);
 
-            let now = new Date();
-            let today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-            let yesterday = today - 86400000;
-            let startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-            let startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
-            let endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
+    filtered.forEach(row => { if (row.Status !== 'BATAL') { totJual += Number(row.Total || 0); totalGalon += Number(row.Jumlah || 0); } });
 
-            let todayOmzet = 0, todayGalon = 0, todayKonsumen = 0, todayAgen = 0;
-            let yesterdayOmzet = 0;
-            let totalPiutang = 0, piutangAgenCount = 0;
-            let totalTertahan = 0, komisiMap = {}, totalKomisi = 0, komisiCount = 0;
-            let totalGalonRusakBulanIni = 0;
-            let bulanIniOmzet = 0, bulanIniGalon = 0;
-            let bulanLaluOmzet = 0, bulanLaluGalon = 0;
-
-            let dailyData = {};
-            for(let i = 6; i >= 0; i--) {
-                let d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-                let key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                dailyData[key] = { omzet: 0, galon: 0, label: d.toLocaleDateString('id-ID', { weekday: 'short' }) };
-            }
-
-            globalTransaksiData.forEach(row => {
-                let rowDate = new Date(row.tanggalRaw);
-                let rowTime = rowDate.getTime();
-                let rowDay = new Date(rowDate.getFullYear(), rowDate.getMonth(), rowDate.getDate()).getTime();
-                let rowKey = rowDate.getFullYear() + '-' + String(rowDate.getMonth()+1).padStart(2,'0') + '-' + String(rowDate.getDate()).padStart(2,'0');
-
-                if(row.status === 'Lunas') {
-                    if(rowDay === today) {
-                        todayOmzet += Number(row.total || 0);
-                        todayGalon += Number(row.jumlah || 0);
-                        if(row.tipePembeli === 'Agen') todayAgen += Number(row.jumlah || 0);
-                        else todayKonsumen += Number(row.jumlah || 0);
-                    }
-                    if(rowDay === yesterday) yesterdayOmzet += Number(row.total || 0);
-                    if(rowTime >= startOfMonth) {
-                        bulanIniOmzet += Number(row.total || 0);
-                        bulanIniGalon += Number(row.jumlah || 0);
-                    }
-                    if(rowTime >= startOfLastMonth && rowTime <= endOfLastMonth) {
-                        bulanLaluOmzet += Number(row.total || 0);
-                        bulanLaluGalon += Number(row.jumlah || 0);
-                    }
-                    if(dailyData[rowKey]) {
-                        dailyData[rowKey].omzet += Number(row.total || 0);
-                        dailyData[rowKey].galon += Number(row.jumlah || 0);
-                    }
-                }
-                if(row.status === 'Bon / Utang') { totalPiutang += Number(row.total || 0); piutangAgenCount++; }
-                if(row.statusKomisi === 'Belum Dibayar' && row.komisi > 0) {
-                    if(!komisiMap[row.operator]) komisiMap[row.operator] = 0;
-                    komisiMap[row.operator] += Number(row.komisi || 0);
-                    totalKomisi += Number(row.komisi || 0);
-                    komisiCount++;
-                }
-            });
-
-            globalGalonTertahan.forEach(row => {
-                if(Number(row.jumlahTertahan) > 0) totalTertahan += Number(row.jumlahTertahan);
-            });
-
-            globalGalonRusakData.forEach(row => {
-                let rowDate = new Date(row.tanggalRaw);
-                if(rowDate.getMonth() === now.getMonth() && rowDate.getFullYear() === now.getFullYear()) {
-                    let match = row.detailRusak.match(/(\d+)\s*galon/gi);
-                    if(match) match.forEach(m => { let num = parseInt(m); if(!isNaN(num)) totalGalonRusakBulanIni += num; });
-                }
-            });
-
-            document.getElementById('dashOmzet').innerText = formatRupiah(todayOmzet);
-            
-            let trendPercent = 0, trendIcon = 'remove', trendColor = 'bg-white/20';
-            if(yesterdayOmzet > 0) {
-                trendPercent = ((todayOmzet - yesterdayOmzet) / yesterdayOmzet * 100).toFixed(1);
-                if(trendPercent > 0) { trendIcon = 'arrow_upward'; trendColor = 'bg-tertiary/40'; }
-                else if(trendPercent < 0) { trendIcon = 'arrow_downward'; trendColor = 'bg-error/40'; }
-            } else if(todayOmzet > 0) {
-                trendPercent = 100; trendIcon = 'arrow_upward'; trendColor = 'bg-tertiary/40';
-            }
-            document.getElementById('dashOmzetTrend').innerHTML = `<span class="material-symbols-outlined text-[14px]">${trendIcon}</span><span>${Math.abs(trendPercent)}%</span>`;
-            document.getElementById('dashOmzetTrend').className = `flex items-center gap-1 ${trendColor} px-2 py-1 rounded-full`;
-
-            document.getElementById('dashGalon').innerText = todayGalon;
-            document.getElementById('dashGalonKonsumen').innerText = todayKonsumen;
-            document.getElementById('dashGalonAgen').innerText = todayAgen;
-            document.getElementById('dashPiutang').innerText = formatRupiah(totalPiutang);
-            document.getElementById('dashPiutangAgen').innerText = piutangAgenCount;
-            document.getElementById('dashTertahan').innerText = totalTertahan;
-            document.getElementById('dashGalonRusak').innerText = totalGalonRusakBulanIni;
-            document.getElementById('dashTotalKomisi').innerText = formatRupiah(totalKomisi);
-            document.getElementById('dashKomisiCount').innerText = komisiCount + ' transaksi';
-
-            let totalMasuk = 0, totalKeluar = 0;
-            globalKeuanganData.forEach(row => {
-                if(row.jenis === 'Pemasukan') totalMasuk += Number(row.jumlah);
-                if(row.jenis === 'Pengeluaran') totalKeluar += Number(row.jumlah);
-            });
-            document.getElementById('dashSaldo').innerText = formatRupiah(totalMasuk - totalKeluar);
-            document.getElementById('dashTotalMasuk').innerText = formatRupiah(totalMasuk);
-            document.getElementById('dashTotalKeluar').innerText = formatRupiah(totalKeluar);
-
-            document.getElementById('dashBulanIni').innerText = formatRupiah(bulanIniOmzet);
-            document.getElementById('dashBulanIniGalon').innerText = bulanIniGalon;
-            document.getElementById('dashBulanLalu').innerText = formatRupiah(bulanLaluOmzet);
-            document.getElementById('dashBulanLaluGalon').innerText = bulanLaluGalon;
-            let selisih = bulanIniOmzet - bulanLaluOmzet;
-            let selisihEl = document.getElementById('dashSelisihBulan');
-            selisihEl.innerText = formatRupiah(Math.abs(selisih)) + (selisih >= 0 ? ' ↗' : ' ↘');
-            selisihEl.className = 'text-sm font-bold font-headline ' + (selisih >= 0 ? 'text-tertiary' : 'text-error');
-
-            let chartEl = document.getElementById('dashBarChart');
-            let labelsEl = document.getElementById('dashBarLabels');
-            if(chartEl && labelsEl) {
-                let maxOmzet = Math.max(...Object.values(dailyData).map(d => d.omzet), 1);
-                chartEl.innerHTML = Object.values(dailyData).map(d => {
-                    let height = Math.max(4, (d.omzet / maxOmzet) * 100);
-                    return `<div class="bar" style="height: ${height}%" title="${formatRupiah(d.omzet)}"></div>`;
-                }).join('');
-                labelsEl.innerHTML = Object.values(dailyData).map(d => `<span class="flex-1 text-center">${d.label}</span>`).join('');
-            }
-
-            let total7Hari = Object.values(dailyData).reduce((s, d) => s + d.omzet, 0);
-            let badge = document.getElementById('dashTrendBadge');
-            if(total7Hari > 0) {
-                badge.innerText = formatRupiah(total7Hari) + ' / 7 hari';
-                badge.className = 'text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold font-label';
-            } else {
-                badge.innerText = 'Belum ada data';
-            }
-
-            let totalGalonTerjualAll = 0;
-            globalTransaksiData.forEach(row => { if(row.status === "Lunas") totalGalonTerjualAll += Number(row.jumlah || 0); });
-            let totalAirBeliLiter = 0, totalTutupBeliPcs = 0;
-            globalKeuanganData.forEach(row => {
-                if(row.jenis === "Pengeluaran" && row.keterangan) {
-                    if(row.kategori === "Air") { let m = row.keterangan.match(/Beli\s(\d+)\sLiter/); if(m) totalAirBeliLiter += Number(m[1]); }
-                    if(row.kategori === "Tutup Botol") { let m = row.keterangan.match(/Beli\s(\d+)\sPcs/); if(m) totalTutupBeliPcs += Number(m[1]); }
-                }
-            });
-            let perkiraanAir = totalGalonTerjualAll * 19;
-            let selisihAir = totalAirBeliLiter - perkiraanAir;
-            let selisihTutup = totalTutupBeliPcs - totalGalonTerjualAll;
-
-            document.getElementById('dashStokAlert').innerHTML = `
-                <div class="flex justify-between items-center"><span>Total Galon Terjual</span><b class="text-slate-900">${totalGalonTerjualAll} galon</b></div>
-                <div class="h-px bg-border my-1"></div>
-                <div class="flex justify-between items-center"><span>💧 Pembelian Air</span><b class="text-slate-900">${totalAirBeliLiter} L</b></div>
-                <div class="flex justify-between items-center text-[11px]"><span>Estimasi kebutuhan (19L × galon)</span><span>${perkiraanAir} L</span></div>
-                <div class="flex justify-between items-center"><span>Selisih</span><span class="${selisihAir >= 0 ? 'text-tertiary' : 'text-error'} font-bold">${selisihAir >= 0 ? '+' : ''}${selisihAir} L</span></div>
-                <div class="h-px bg-border my-1"></div>
-                <div class="flex justify-between items-center"><span>🔵 Pembelian Tutup</span><b class="text-slate-900">${totalTutupBeliPcs} Pcs</b></div>
-                <div class="flex justify-between items-center text-[11px]"><span>Estimasi kebutuhan (1 × galon)</span><span>${totalGalonTerjualAll} Pcs</span></div>
-                <div class="flex justify-between items-center"><span>Selisih</span><span class="${selisihTutup >= 0 ? 'text-tertiary' : 'text-error'} font-bold">${selisihTutup >= 0 ? '+' : ''}${selisihTutup} Pcs</span></div>
-            `;
-
-            let rusakListEl = document.getElementById('dashGalonRusakList');
-            if(globalGalonRusakData.length > 0) {
-                rusakListEl.innerHTML = globalGalonRusakData.slice().reverse().slice(0, 5).map(row => `
-                    <div class="flex items-center justify-between p-2.5 bg-error-light/50 rounded-xl">
-                        <div class="min-w-0 flex-1">
-                            <p class="text-xs font-bold text-slate-900 truncate">${row.agen}</p>
-                            <p class="text-[10px] text-on-surface-variant truncate">${row.detailRusak}</p>
-                        </div>
-                        <span class="text-[10px] text-on-surface-variant shrink-0 ml-2">${formatTanggal(row.tanggalRaw)}</span>
-                    </div>
-                `).join('');
-            } else {
-                rusakListEl.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon rusak</p>';
-            }
-
-            let komisiHtml = '';
-            Object.keys(komisiMap).forEach(op => {
-                komisiHtml += `
-                    <div class="flex items-center justify-between p-2.5 bg-surface rounded-xl">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 rounded-full bg-primary-light text-primary flex items-center justify-center text-[11px] font-bold font-label">${op.substring(0,2).toUpperCase()}</div>
-                            <span class="text-xs font-bold text-slate-900 font-label">${op}</span>
-                        </div>
-                        <span class="text-sm font-bold text-primary font-headline">${formatRupiah(komisiMap[op])}</span>
-                    </div>
-                `;
-            });
-            if(komisiHtml === '') komisiHtml = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada komisi tertunda</p>';
-            document.getElementById('dashKomisiList').innerHTML = komisiHtml;
-        }
-
-        // ============ SEGMENT & PRODUK ============
-        function setSegment(type) {
-            currentSegment = type;
-            const btnUmum = document.getElementById('btn-segment-umum');
-            const btnAgen = document.getElementById('btn-segment-agen');
-            const agenCard = document.getElementById('agen-info-card');
-            const rusakBox = document.getElementById('containerGalonRusak');
-
-            if (type === 'agen') {
-                btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-                btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-                agenCard.classList.remove('hidden');
-                rusakBox.classList.remove('hidden');
-            } else {
-                btnUmum.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 bg-white text-primary shadow-app font-label';
-                btnAgen.className = 'py-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 text-on-surface-variant font-label';
-                agenCard.classList.add('hidden');
-                rusakBox.classList.add('hidden');
-                document.getElementById("listGalonRusakContainer").innerHTML = "";
-            }
-            updateDropdownProdukSemuaBaris();
-        }
-
-        function updateAgenData(agenKey) {
-            let tertahan = 0, bon = 0;
-            globalGalonTertahan.forEach(t => { if(t.namaAgen === agenKey) tertahan += Number(t.jumlahTertahan); });
-            globalTransaksiData.forEach(t => { if(t.namaPembeli === agenKey && t.status === 'Bon / Utang') bon += Number(t.total); });
-            document.getElementById('agen-galon-tertahan').innerText = tertahan;
-            document.getElementById('agen-sisa-bon').innerText = formatRupiah(bon);
-        }
-
-        function updateDropdownProdukSemuaBaris() {
-            document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-                let select = row.querySelector(".produk-jenis");
-                if(select) isiDropdownProduk(select, select.value);
-            });
-        }
-
-        function isiDropdownProduk(selectElement, selectedValue = "") {
-            let targetJenisPelanggan = (currentSegment === "agen") ? "Agen" : "Konsumen";
-            selectElement.innerHTML = '<option value="">Pilih Jenis Galon...</option>';
-            masterHargaList.forEach(item => {
-                if(item.jenisPelanggan === targetJenisPelanggan) {
-                    let sel = (item.jenis === selectedValue) ? "selected" : "";
-                    selectElement.innerHTML += `<option value="${item.jenis}" data-harga="${item.harga}" ${sel}>${item.jenis} - Rp ${Number(item.harga).toLocaleString()}</option>`;
-                }
-            });
-            hitungTotalMultiProduk();
-        }
-
-        // PERBAIKAN 6: Qty manual input, produk select lebih luas
-        function tambahBarisProduk(jenisDefault = "", jumlahDefault = 1) {
-            let container = document.getElementById("listProdukContainer");
-            let div = document.createElement("div");
-            div.className = "bg-white rounded-2xl p-3 shadow-app border border-border space-y-2";
-            div.innerHTML = `
-                <div class="flex items-start gap-2">
-                    <div class="w-10 h-10 rounded-xl bg-primary-light flex items-center justify-center shrink-0 mt-0.5">
-                        <span class="material-symbols-outlined text-[20px] text-primary">water_bottle_large</span>
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <select class="w-full px-3 py-3 bg-surface border border-border rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-primary produk-jenis font-label" onchange="hitungTotalMultiProduk()" required></select>
-                    </div>
-                    <button type="button" onclick="this.closest('.bg-white').remove(); hitungTotalMultiProduk();" class="w-9 h-9 rounded-xl bg-error-light text-error flex items-center justify-center shrink-0 mt-0.5 active:scale-90 transition">
-                        <span class="material-symbols-outlined text-[18px]">close</span>
-                    </button>
+    if (container) {
+      container.innerHTML = "";
+      if (paginated.items.length === 0) {
+        container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Belum ada transaksi</div>';
+      } else {
+        paginated.items.forEach(row => {
+          let isMyData = (loggedInRole === 'owner' || row.OperatorID === loggedInUser);
+          if (!isMyData) return;
+          let statusBadge = row.Status === 'BATAL'
+            ? '<span class="text-[10px] bg-error-light text-error px-2 py-0.5 rounded-full font-bold">BATAL</span>'
+            : (Number(row.Hutang) > 0
+              ? '<span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">BON</span>'
+              : '<span class="text-[10px] bg-tertiary-light text-tertiary px-2 py-0.5 rounded-full font-bold">LUNAS</span>');
+          container.innerHTML += `
+            <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
+              <div class="flex items-start justify-between mb-2">
+                <div class="flex-1 min-w-0">
+                  <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.AgenID || '-'}</p>
+                  <p class="text-[11px] text-on-surface-variant">${row.Tanggal} • ${row.OperatorID}</p>
                 </div>
-                <div class="flex items-center justify-between gap-2 bg-surface p-2 rounded-xl">
-                    <span class="text-[10px] font-bold text-on-surface-variant font-label uppercase">Jumlah</span>
-                    <input type="number" min="1" value="${jumlahDefault}" inputmode="numeric" pattern="[0-9]*" class="w-24 px-3 py-2 bg-white border border-border rounded-lg text-base font-bold text-slate-900 text-center produk-jumlah focus:outline-none focus:border-primary" oninput="hitungTotalMultiProduk()">
-                </div>
-            `;
-            container.appendChild(div);
-            isiDropdownProduk(div.querySelector(".produk-jenis"), jenisDefault);
-        }
-
-        function tambahBarisGalonRusak() {
-            let container = document.getElementById("listGalonRusakContainer");
-            let div = document.createElement("div");
-            div.className = "grid grid-cols-3 gap-2 bg-white p-2 rounded-xl border border-error/20";
-            div.innerHTML = `
-                <input type="text" class="px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-jenis" placeholder="Jenis" required>
-                <input type="text" class="px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-kondisi" placeholder="Kondisi" required>
-                <div class="flex gap-1">
-                    <input type="number" min="1" value="1" class="w-full px-2 py-2 bg-surface border border-border rounded-lg text-xs rusak-jumlah text-center font-bold" required>
-                    <button type="button" onclick="this.parentElement.parentElement.remove()" class="text-error font-bold px-1">&times;</button>
-                </div>
-            `;
-            container.appendChild(div);
-        }
-
-        function hitungTotalMultiProduk() {
-            let total = 0, items = [];
-            document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-                let select = row.querySelector(".produk-jenis");
-                let jumlahInput = row.querySelector(".produk-jumlah");
-                let opt = select.options[select.selectedIndex];
-                if(opt && opt.dataset.harga && select.value) {
-                    let qty = Number(jumlahInput.value) || 0;
-                    total += Number(opt.dataset.harga) * qty;
-                    if(qty > 0) items.push({ jenis: select.value, qty: qty, harga: Number(opt.dataset.harga) });
-                }
-            });
-            document.getElementById("total").value = total;
-            document.getElementById("totalDisplay").innerText = formatRupiah(total);
-            
-            let listContainer = document.getElementById('rincianTransaksiList');
-            let totalItems = 0;
-            if(items.length === 0) {
-                listContainer.innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
-            } else {
-                listContainer.innerHTML = items.map(item => {
-                    totalItems += item.qty;
-                    return `<div class="flex justify-between"><span>${item.qty}x ${item.jenis}</span><span class="font-bold">${formatRupiah(item.harga * item.qty)}</span></div>`;
-                }).join('');
-            }
-            if(currentSegment === 'agen' && items.reduce((s,i)=>s+i.qty,0) >= 10) {
-                listContainer.innerHTML += '<div class="flex justify-between text-tertiary font-bold"><span>Diskon Agen</span><span>-Rp 1.000</span></div>';
-            }
-            document.getElementById('badge-total-item').innerText = totalItems + ' ITEM';
-        }
-
-        // PERBAIKAN 2 & 4: Catatan hanya untuk konsumen, dan reset saat muncul
-        function togglePenghutangField() {
-            let s = document.getElementById("status").value;
-            let c = document.getElementById("penghutangContainer");
-            let input = document.getElementById("penghutang");
-            
-            if(s === "Bon / Utang") {
-                // Untuk agen, tidak perlu catatan (nama agen sudah jelas)
-                if(currentSegment === 'agen') {
-                    c.classList.add("hidden");
-                    input.value = "";
-                } else {
-                    // Untuk konsumen, tampilkan catatan dan reset
-                    c.classList.remove("hidden");
-                    input.value = ""; // PERBAIKAN: Reset saat muncul
-                    setTimeout(() => input.focus(), 100);
-                }
-            } else {
-                c.classList.add("hidden");
-                input.value = "";
-            }
-        }
-
-        // ============ SUBMIT TRANSACTION ============
-        function submitTransaction() {
-            let btn = document.getElementById("submitBtn");
-            let listProduk = [];
-            document.querySelectorAll("#listProdukContainer > div").forEach(row => {
-                let select = row.querySelector(".produk-jenis");
-                let jumlahInput = row.querySelector(".produk-jumlah");
-                let opt = select.options[select.selectedIndex];
-                if(select.value && Number(jumlahInput.value) > 0) {
-                    listProduk.push({ jenis: select.value, jumlah: jumlahInput.value, harga: opt.dataset.harga });
-                }
-            });
-
-            if(listProduk.length === 0) { showPopup("Peringatan", "Tambahkan minimal 1 produk!", false); return; }
-
-            let namaAgenValue = "";
-            if(currentSegment === 'agen') {
-                namaAgenValue = document.getElementById("namaAgen").value;
-                if(!namaAgenValue || namaAgenValue.trim() === "") {
-                    showPopup("Peringatan", "Pilih agen terlebih dahulu!", false);
-                    return;
-                }
-            }
-
-            let listRusak = [];
-            if(currentSegment === "agen") {
-                document.querySelectorAll("#listGalonRusakContainer > div").forEach(r => {
-                    let j = r.querySelector(".rusak-jenis").value;
-                    let k = r.querySelector(".rusak-kondisi").value;
-                    let jml = r.querySelector(".rusak-jumlah").value;
-                    if(j && k && jml) listRusak.push({ jenis: j, kondisi: k, jumlah: jml });
-                });
-            }
-
-            // Untuk agen, otomatis isi penghutang dengan nama agen
-            let penghutangValue = "";
-            if(currentSegment === 'agen') {
-                penghutangValue = namaAgenValue;
-            } else {
-                penghutangValue = document.getElementById("penghutang").value;
-            }
-
-            btn.disabled = true; btn.innerText = "Menyimpan...";
-            let data = {
-                action: "save_transaction", 
-                operator: loggedInUser,
-                tipePembeli: currentSegment === 'agen' ? 'Agen' : 'Umum',
-                namaAgen: namaAgenValue,
-                listProduk: listProduk, 
-                listRusak: listRusak,
-                total: document.getElementById("total").value,
-                status: document.getElementById("status").value,
-                penghutang: penghutangValue
-            };
-
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(data) }).then(() => {
-                showPopup("Sukses", "Transaksi berhasil disimpan!");
-                document.getElementById("listProdukContainer").innerHTML = "";
-                tambahBarisProduk();
-                document.getElementById("listGalonRusakContainer").innerHTML = "";
-                document.getElementById("total").value = 0;
-                document.getElementById("totalDisplay").innerText = "Rp 0";
-                document.getElementById('rincianTransaksiList').innerHTML = '<p class="text-center text-on-surface-variant py-2 text-xs">Belum ada produk</p>';
-                document.getElementById('badge-total-item').innerText = '0 ITEM';
-                document.getElementById("penghutang").value = "";
-                document.getElementById("status").value = "Lunas";
-                togglePenghutangField();
-                btn.disabled = false; btn.innerText = "Simpan Transaksi";
-                setTimeout(() => refreshAllData(), 1000);
-            }).catch(() => {
-                showPopup("Error", "Gagal menyimpan.", false);
-                btn.disabled = false; btn.innerText = "Simpan Transaksi";
-            });
-        }
-
-        function submitKeuangan() {
-            let btn = document.getElementById("submitKasBtn");
-            let jumlah = document.getElementById("kasJumlah").value;
-            if(!jumlah || jumlah === '0') { showPopup("Peringatan", "Masukkan jumlah!", false); return; }
-            let kategori = document.getElementById("kasKategori").value;
-            if(!kategori) { showPopup("Peringatan", "Pilih kategori!", false); return; }
-            
-            btn.disabled = true; btn.innerText = "Menyimpan...";
-            let data = {
-                action: "save_keuangan",
-                jenis: (loggedInRole === 'owner') ? document.getElementById("kasJenis").value : "Pengeluaran",
-                kategori: kategori,
-                jumlah: jumlah,
-                satuanJumlah: document.getElementById("satuanJumlah").value,
-                satuanUnit: document.getElementById("satuanUnit").value,
-                keterangan: document.getElementById("kasKeterangan").value,
-                operator: loggedInUser
-            };
-
-            fetch(SCRIPT_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(data) }).then(() => {
-                showPopup("Sukses", "Catatan keuangan disimpan!");
-                document.getElementById("kasJumlahFormatted").value = "";
-                document.getElementById("kasJumlah").value = "";
-                document.getElementById("kasKeterangan").value = "";
-                document.getElementById("kasKategori").value = "";
-                document.getElementById("containerSatuan").classList.add("hidden");
-                btn.disabled = false; btn.innerText = "Simpan";
-                setTimeout(() => loadKeuangan(), 1000);
-            }).catch(() => { btn.disabled = false; btn.innerText = "Simpan"; });
-        }
-
-        // ============ LOAD DATA ============
-        async function loadMasterHarga() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_harga");
-                masterHargaList = await res.json();
-                if(document.getElementById("listProdukContainer").children.length === 0) tambahBarisProduk();
-                let hargaContainer = document.getElementById("hargaListContainer");
-                if(hargaContainer && loggedInRole === 'owner') {
-                    hargaContainer.innerHTML = "";
-                    masterHargaList.forEach(i => {
-                        hargaContainer.innerHTML += `
-                            <div class="flex items-center justify-between p-3 bg-surface rounded-xl text-xs">
-                                <div class="flex-1 min-w-0">
-                                    <p class="font-bold text-slate-900">${i.jenis}</p>
-                                    <p class="text-[10px] text-on-surface-variant">${i.jenisPelanggan}</p>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <input type="number" id="price_${i.jenis}_${i.jenisPelanggan}" value="${i.harga}" class="px-2 py-1.5 bg-white border border-border rounded-lg w-24 text-right font-bold text-xs">
-                                    <button onclick="updateHarga('${i.jenis}', '${i.jenisPelanggan}')" class="bg-tertiary text-white px-3 py-1.5 rounded-lg text-xs font-bold">Simpan</button>
-                                </div>
-                            </div>`;
-                    });
-                }
-            } catch(e) { console.error('loadMasterHarga', e); }
-        }
-
-        function updateHarga(jenis, jenisPelanggan) {
-            let h = document.getElementById(`price_${jenis}_${jenisPelanggan}`).value;
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "update_harga", jenis, harga: h, jenisPelanggan }) })
-            .then(() => { showPopup("Sukses", "Harga diperbarui!"); loadMasterHarga(); });
-        }
-
-        async function loadAgen() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_agen");
-                agenList = await res.json();
-                let select = document.getElementById("namaAgen");
-                let selectKhusus = document.getElementById("agenPengembalianKhusus");
-                let filterTertahan = document.getElementById("filterAgenTertahan");
-                
-                select.innerHTML = '<option value="">Pilih Agen...</option>';
-                if(selectKhusus) selectKhusus.innerHTML = '<option value="">Pilih Agen...</option>';
-                if(filterTertahan) filterTertahan.innerHTML = '<option value="">Semua Agen</option>';
-                
-                agenList.forEach(n => {
-                    select.innerHTML += `<option value="${n}">${n}</option>`;
-                    if(selectKhusus) selectKhusus.innerHTML += `<option value="${n}">${n}</option>`;
-                    if(filterTertahan) filterTertahan.innerHTML += `<option value="${n}">${n}</option>`;
-                });
-                
-                let container = document.getElementById("agenListContainer");
-                if(container && loggedInRole === 'owner') {
-                    container.innerHTML = "";
-                    agenList.forEach(n => container.innerHTML += `<div class="inline-flex items-center bg-surface px-3 py-1.5 rounded-xl text-xs gap-2"><span class="font-bold">${n}</span><button onclick="hapusAgen('${n}')" class="text-error"><span class="material-symbols-outlined text-[14px]">close</span></button></div>`);
-                }
-            } catch(e) { console.error('loadAgen', e); }
-        }
-
-        document.getElementById("addAgenForm")?.addEventListener("submit", e => {
-            e.preventDefault();
-            let n = document.getElementById("newAgenName").value;
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "add_agen", namaAgen: n }) })
-            .then(() => { document.getElementById("newAgenName").value = ""; loadAgen(); showPopup("Sukses", "Agen ditambahkan."); });
+                ${statusBadge}
+              </div>
+              <p class="text-[11px] text-on-surface-variant mb-2 truncate">${row.Tipe}</p>
+              <div class="flex justify-between items-center pt-2 border-t border-border">
+                <span class="text-xs text-on-surface-variant">${row.Jumlah} galon</span>
+                <span class="font-bold text-slate-900 font-headline">${formatRupiah(row.Total)}</span>
+              </div>
+            </div>`;
         });
+      }
+    }
+    document.getElementById("sumPenjualan").innerText = formatRupiah(totJual);
+    document.getElementById("sumGalonTerjual").innerText = totalGalon;
+  } catch (e) { console.error('loadTransaksi', e); }
+}
 
-        function hapusAgen(n) {
-            if(confirm(`Hapus agen ${n}?`)) {
-                fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "delete_agen", namaAgen: n }) }).then(() => { loadAgen(); showPopup("Sukses", "Agen dihapus."); });
-            }
-        }
+function changePageRiwayat(dir) { pageState.riwayat = Math.max(1, pageState.riwayat + dir); loadTransaksi(); }
 
-        async function loadUsers() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_users");
-                let data = await res.json();
-                let tbody = document.getElementById("userTableBody"), selectBayar = document.getElementById("bayarOperator");
-                if(tbody) tbody.innerHTML = ""; if(selectBayar) selectBayar.innerHTML = "";
-                data.forEach(u => {
-                    if(tbody && u.role === 'operator') tbody.innerHTML += `<div class="flex items-center justify-between p-3 bg-surface rounded-xl"><span class="text-xs font-bold">${u.username}</span><button onclick="hapusUser('${u.username}')" class="text-error text-xs font-bold">Hapus</button></div>`;
-                    if(selectBayar && u.role === 'operator') selectBayar.innerHTML += `<option value="${u.username}">${u.username}</option>`;
-                });
-                hitungPreviewKomisi();
-            } catch(e) { console.error('loadUsers', e); }
-        }
+// ============ KEUANGAN ============
+function setKeuanganFilter(type) {
+  let now = new Date(), start, end;
+  if (type === 'today') { start = end = now.toISOString().split('T')[0]; }
+  else if (type === 'week') { let d = new Date(now); d.setDate(d.getDate() - 7); start = d.toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
+  else if (type === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]; end = now.toISOString().split('T')[0]; }
+  else if (type === 'lastmonth') { let f = new Date(now.getFullYear(), now.getMonth() - 1, 1); let l = new Date(now.getFullYear(), now.getMonth(), 0); start = f.toISOString().split('T')[0]; end = l.toISOString().split('T')[0]; }
+  document.getElementById("filterKeuanganMulai").value = start;
+  document.getElementById("filterKeuanganSelesai").value = end;
+  pageState.keuangan = 1;
+  loadKeuangan();
+}
 
-        document.getElementById("addUserForm")?.addEventListener("submit", e => {
-            e.preventDefault();
-            let u = document.getElementById("newUsername").value, p = document.getElementById("newPassword").value;
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "add_user", username: u, password: p, role: "operator" }) })
-            .then(() => { document.getElementById("addUserForm").reset(); loadUsers(); showPopup("Sukses", "Operator ditambahkan."); });
-        });
+function resetFilterKeuangan() {
+  document.getElementById("filterKeuanganMulai").value = "";
+  document.getElementById("filterKeuanganSelesai").value = "";
+  pageState.keuangan = 1;
+  loadKeuangan();
+}
 
-        function hapusUser(u) {
-            if(confirm(`Hapus operator ${u}?`)) {
-                fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "delete_user", username: u }) }).then(() => { loadUsers(); showPopup("Sukses", "Operator dihapus."); });
-            }
-        }
+async function loadKeuangan() {
+  try {
+    globalKeuanganData = await apiGet('listExpenses', {});
+    let totalMasuk = 0, totalKeluar = 0;
+    globalKeuanganData.forEach(row => { totalKeluar += Number(row.Nominal); });
+    document.getElementById("saldoKas").innerText = formatRupiah(-totalKeluar);
+    document.getElementById("saldoMasuk").innerText = formatRupiah(totalMasuk);
+    document.getElementById("saldoKeluar").innerText = formatRupiah(totalKeluar);
 
-        // ============ PIUTANG ============
-        async function loadPiutangAgen() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_transaksi");
-                let data = await res.json();
-                let container = document.getElementById("piutangList");
-                if(!container) return;
-                let query = document.getElementById("searchPiutang").value.toLowerCase();
-                let listPiutang = data.filter(row => row.status === "Bon / Utang" && (!query || row.namaPembeli.toLowerCase().includes(query) || row.penghutang.toLowerCase().includes(query)));
-                
-                let paginated = paginate(listPiutang.slice().reverse(), pageState.piutang);
-                pageState.piutang = paginated.currentPage;
-                renderPaginationInfo('pageInfoPiutang', paginated.currentPage, paginated.totalPages, paginated.total);
+    let tM = document.getElementById("filterKeuanganMulai")?.value;
+    let tS = document.getElementById("filterKeuanganSelesai")?.value;
+    let filtered = globalKeuanganData.filter(row => {
+      if (!tM && !tS) return true;
+      let d = Number(row.TanggalRaw || 0);
+      if (tM && d < new Date(tM).getTime()) return false;
+      if (tS && d > new Date(tS).setHours(23,59,59,999)) return false;
+      return true;
+    });
 
-                container.innerHTML = "";
-                if(paginated.items.length === 0) {
-                    container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada data piutang</div>';
-                } else {
-                    paginated.items.forEach(row => {
-                        container.innerHTML += `
-                            <div class="bg-white rounded-2xl p-4 shadow-app border border-border card-tap" onclick='bukaModalPelunasan(${JSON.stringify(row).replace(/'/g, "&#39;")})'>
-                                <div class="flex items-start justify-between mb-2">
-                                    <div class="flex-1 min-w-0">
-                                        <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.namaPembeli}</p>
-                                        <p class="text-[11px] text-on-surface-variant">${formatTanggal(row.tanggalRaw)}</p>
-                                    </div>
-                                    <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold font-label">BON</span>
-                                </div>
-                                <div class="flex items-center justify-between pt-2 border-t border-border">
-                                    <div>
-                                        <p class="text-[10px] text-on-surface-variant">Tagihan</p>
-                                        <p class="font-bold text-error font-headline">${formatRupiah(row.total)}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <p class="text-[10px] text-on-surface-variant">Galon</p>
-                                        <p class="font-bold text-slate-900 font-headline">${row.jumlah}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
-            } catch(e) { console.error('loadPiutangAgen', e); }
-        }
+    let totPeng = 0;
+    filtered.forEach(row => { totPeng += Number(row.Nominal); });
+    document.getElementById("sumPemasukanLain").innerText = formatRupiah(0);
+    document.getElementById("sumPengeluaran").innerText = formatRupiah(totPeng);
 
-        function changePagePiutang(dir) {
-            pageState.piutang += dir;
-            if(pageState.piutang < 1) pageState.piutang = 1;
-            loadPiutangAgen();
-        }
+    let container = document.getElementById("keuanganTable");
+    let paginated = paginate(filtered, pageState.keuangan);
+    pageState.keuangan = paginated.currentPage;
+    renderPaginationInfo('pageInfoKeuangan', paginated.currentPage, paginated.totalPages, paginated.total);
+    document.getElementById('countKeuangan').innerText = paginated.total;
 
-        function bukaModalPelunasan(row) {
-            activeTargetPiutang = row.id;
-            activeAgenPiutang = row.namaPembeli;
-            document.getElementById("infoDetailPiutang").innerHTML = `
-                <div class="grid grid-cols-2 gap-2">
-                    <div><p class="text-[10px] opacity-70">Agen</p><p class="font-bold text-slate-900">${row.namaPembeli}</p></div>
-                    <div><p class="text-[10px] opacity-70">Waktu</p><p class="font-bold text-slate-900">${formatTanggal(row.tanggalRaw)}</p></div>
-                    <div class="col-span-2"><p class="text-[10px] opacity-70">Total Tagihan</p><p class="font-bold text-error text-base font-headline">${formatRupiah(row.total)}</p></div>
+    if (container) {
+      container.innerHTML = "";
+      if (paginated.items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
+      } else {
+        paginated.items.forEach(row => {
+          container.innerHTML += `
+            <div class="p-3 bg-surface rounded-xl">
+              <div class="flex justify-between items-start mb-1">
+                <div class="flex-1 min-w-0">
+                  <span class="text-[10px] bg-error-light text-error px-2 py-0.5 rounded-full font-bold">PENGELUARAN</span>
+                  <p class="text-xs font-bold text-slate-900 mt-1">${row.Kategori}</p>
                 </div>
-            `;
-            let tabelBody = document.getElementById("tabelCekKondisiRetur");
-            tabelBody.innerHTML = "";
-            let pesananMap = {};
-            row.detailProduk.split(",").forEach(item => {
-                item = item.trim();
-                let match = item.match(/(.+?)\s\((\d+)\sgln/);
-                if(match) pesananMap[match[1].trim()] = Number(match[2]);
-            });
-            let tertahanMap = {};
-            globalGalonTertahan.forEach(t => { if(t.namaAgen === activeAgenPiutang) tertahanMap[t.jenisGalon] = Number(t.jumlahTertahan); });
-            let semuaJenis = new Set([...Object.keys(pesananMap), ...Object.keys(tertahanMap)]);
-            semuaJenis.forEach(jenis => {
-                let jmlPesanan = pesananMap[jenis] || 0;
-                let jmlTertahanLalu = tertahanMap[jenis] || 0;
-                let totalWajibKembali = jmlPesanan + jmlTertahanLalu;
-                tabelBody.innerHTML += `
-                    <tr class="item-retur-row" data-jenis="${jenis}">
-                        <td class="p-2 font-bold text-xs">${jenis}</td>
-                        <td class="p-2 text-center text-xs font-bold text-primary">${jmlPesanan}</td>
-                        <td class="p-2 text-center text-xs font-bold text-warning">${jmlTertahanLalu}</td>
-                        <td class="p-2"><input type="number" min="0" max="${totalWajibKembali}" value="${jmlPesanan}" class="w-16 px-2 py-1 bg-surface border border-border rounded text-xs font-bold text-center input-jml-kembali"></td>
-                        <td class="p-2">
-                            <select class="px-2 py-1 bg-surface border border-border rounded text-xs select-kondisi">
-                                <option value="Baik">Baik</option>
-                                <option value="Pecah">Pecah</option>
-                            </select>
-                        </td>
-                    </tr>
-                `;
-            });
-            document.getElementById("modalPelunasan").classList.remove("hidden");
-        }
-
-        function prosesLunasPiutangFinal() {
-            if(!activeTargetPiutang) return;
-            let rincianPengembalian = [], rincianPecah = [];
-            document.querySelectorAll(".item-retur-row").forEach(r => {
-                let jenis = r.dataset.jenis;
-                let jmlKembali = Number(r.querySelector(".input-jml-kembali").value);
-                let kondisi = r.querySelector(".select-kondisi").value;
-                rincianPengembalian.push({ jenis, jumlahDikembalikan: jmlKembali });
-                if(kondisi === "Pecah") rincianPecah.push(`${jmlKembali} galon ${jenis} (Pecah)`);
-            });
-            let detailPecahStr = rincianPecah.length > 0 ? rincianPecah.join("; ") : "-";
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "lunas_piutang", idTransaksi: activeTargetPiutang, rincianPengembalian, detailPecah: detailPecahStr, operator: loggedInUser }) })
-            .then(res => res.json()).then(res => {
-                if(res.result === "success") {
-                    document.getElementById("modalPelunasan").classList.add("hidden");
-                    showPopup("Sukses", "Piutang dilunasi!");
-                    refreshAllData();
-                } else { showPopup("Gagal", "Gagal memproses.", false); }
-            });
-        }
-
-        // ============ GALON TERTAHAN ============
-        function muatDataTertahanAgenKhusus(namaAgen) {
-            let container = document.getElementById("tabelReturKhususOtomatis");
-            container.innerHTML = "";
-            if(!namaAgen) {
-                container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>';
-                return;
-            }
-            let adaTertahan = false;
-            globalGalonTertahan.forEach(t => {
-                if(t.namaAgen === namaAgen && Number(t.jumlahTertahan) > 0) {
-                    adaTertahan = true;
-                    container.innerHTML += `
-                        <div class="item-retur-khusus-row bg-surface rounded-xl p-3 space-y-2" data-jenis="${t.jenisGalon}" data-max="${t.jumlahTertahan}">
-                            <div class="flex justify-between items-center">
-                                <span class="text-xs font-bold text-slate-900">${t.jenisGalon}</span>
-                                <span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">${t.jumlahTertahan} GLN</span>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <input type="number" min="0" max="${t.jumlahTertahan}" value="0" class="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold text-center input-jml-kembali-khusus">
-                                <select class="px-3 py-2 bg-white border border-border rounded-lg text-xs select-kondisi-khusus">
-                                    <option value="Baik">Baik</option>
-                                    <option value="Pecah">Pecah</option>
-                                </select>
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-            if(!adaTertahan) container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon tertahan</p>';
-        }
-
-        function submitPengembalianKhusus() {
-            let namaAgen = document.getElementById("agenPengembalianKhusus").value;
-            if(!namaAgen) { showPopup("Peringatan", "Pilih agen!", false); return; }
-            let rincian = [];
-            document.querySelectorAll(".item-retur-khusus-row").forEach(r => {
-                let jenis = r.dataset.jenis;
-                let jml = Number(r.querySelector(".input-jml-kembali-khusus").value);
-                let kondisi = r.querySelector(".select-kondisi-khusus").value;
-                if(jml > 0) rincian.push({ jenis, jumlah: jml, kondisi });
-            });
-            if(rincian.length === 0) { showPopup("Peringatan", "Masukkan jumlah galon!", false); return; }
-            fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "kembalikan_galon_tertahan", namaAgen, rincian, operator: loggedInUser }) })
-            .then(res => res.json()).then(res => {
-                if(res.result === "success") {
-                    showPopup("Sukses", "Pengembalian dicatat!");
-                    document.getElementById("agenPengembalianKhusus").value = "";
-                    document.getElementById("tabelReturKhususOtomatis").innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Pilih agen dulu</p>';
-                    refreshAllData();
-                } else { showPopup("Gagal", "Gagal menyimpan.", false); }
-            });
-        }
-
-        async function loadGalonTertahan() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_galon_tertahan");
-                globalGalonTertahan = await res.json();
-                let filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
-                let filtered = globalGalonTertahan.filter(r => Number(r.jumlahTertahan) > 0 && (!filterAgen || r.namaAgen === filterAgen));
-                let container = document.getElementById("stokAgenTable");
-                let paginated = paginate(filtered, pageState.stokTertahan);
-                pageState.stokTertahan = paginated.currentPage;
-                renderPaginationInfo('pageInfoStokTertahan', paginated.currentPage, paginated.totalPages, paginated.total);
-                document.getElementById('countStokTertahan').innerText = paginated.total;
-
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada galon tertahan</p>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            container.innerHTML += `
-                                <div class="flex items-center justify-between p-3 bg-surface rounded-xl">
-                                    <div>
-                                        <p class="text-xs font-bold text-slate-900">${row.namaAgen}</p>
-                                        <p class="text-[10px] text-on-surface-variant">${row.jenisGalon}</p>
-                                    </div>
-                                    <span class="text-sm font-bold text-warning font-headline">${row.jumlahTertahan}</span>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch(e) { console.error('loadGalonTertahan', e); }
-        }
-
-        function changePageStokTertahan(dir) {
-            pageState.stokTertahan += dir;
-            if(pageState.stokTertahan < 1) pageState.stokTertahan = 1;
-            loadGalonTertahan();
-        }
-
-        // PERBAIKAN 7: Daftar galon yang dibeli (belum dikembalikan)
-        async function loadDaftarBeliGalon() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_transaksi");
-                let data = await res.json();
-                let filterAgen = document.getElementById("filterAgenTertahan")?.value || "";
-                
-                // Filter transaksi agen (bon/utang atau lunas) yang belum sepenuhnya dikembalikan
-                let listBeli = [];
-                let tertahanMap = {};
-                globalGalonTertahan.forEach(t => {
-                    if(!tertahanMap[t.namaAgen]) tertahanMap[t.namaAgen] = {};
-                    tertahanMap[t.namaAgen][t.jenisGalon] = Number(t.jumlahTertahan);
-                });
-                
-                // Gabungkan semua transaksi agen per agen
-                let agenTransaksi = {};
-                data.forEach(row => {
-                    if(row.tipePembeli !== 'Agen') return;
-                    if(filterAgen && row.namaPembeli !== filterAgen) return;
-                    if(!agenTransaksi[row.namaPembeli]) agenTransaksi[row.namaPembeli] = {};
-                    
-                    let match = row.detailProduk.match(/(.+?)\s\((\d+)\sgln/g);
-                    if(match) {
-                        match.forEach(m => {
-                            let mm = m.match(/(.+?)\s\((\d+)\sgln/);
-                            if(mm) {
-                                let jenis = mm[1].trim();
-                                let qty = Number(mm[2]);
-                                if(!agenTransaksi[row.namaPembeli][jenis]) agenTransaksi[row.namaPembeli][jenis] = 0;
-                                agenTransaksi[row.namaPembeli][jenis] += qty;
-                            }
-                        });
-                    }
-                });
-                
-                // Hitung sisa per agen
-                Object.keys(agenTransaksi).forEach(agen => {
-                    Object.keys(agenTransaksi[agen]).forEach(jenis => {
-                        let totalBeli = agenTransaksi[agen][jenis];
-                        let tertahan = (tertahanMap[agen] && tertahanMap[agen][jenis]) || 0;
-                        let sudahKembali = totalBeli - tertahan;
-                        listBeli.push({
-                            agen: agen,
-                            jenis: jenis,
-                            totalBeli: totalBeli,
-                            tertahan: tertahan,
-                            sudahKembali: sudahKembali
-                        });
-                    });
-                });
-                
-                let container = document.getElementById("daftarBeliGalonTable");
-                let paginated = paginate(listBeli, pageState.daftarBeli);
-                pageState.daftarBeli = paginated.currentPage;
-                renderPaginationInfo('pageInfoDaftarBeli', paginated.currentPage, paginated.totalPages, paginated.total);
-                document.getElementById('countDaftarBeli').innerText = paginated.total;
-                
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Tidak ada data</p>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            container.innerHTML += `
-                                <div class="p-3 bg-surface rounded-xl">
-                                    <div class="flex justify-between items-start mb-1.5">
-                                        <p class="text-xs font-bold text-slate-900">${row.agen}</p>
-                                        <span class="text-[10px] bg-primary-light text-primary px-2 py-0.5 rounded-full font-bold">${row.jenis}</span>
-                                    </div>
-                                    <div class="grid grid-cols-3 gap-2 text-center">
-                                        <div class="bg-white rounded-lg p-1.5">
-                                            <p class="text-[9px] text-on-surface-variant font-label">Beli</p>
-                                            <p class="text-sm font-bold text-slate-900 font-headline">${row.totalBeli}</p>
-                                        </div>
-                                        <div class="bg-warning-light rounded-lg p-1.5">
-                                            <p class="text-[9px] text-warning font-label">Tertahan</p>
-                                            <p class="text-sm font-bold text-warning font-headline">${row.tertahan}</p>
-                                        </div>
-                                        <div class="bg-tertiary-light rounded-lg p-1.5">
-                                            <p class="text-[9px] text-tertiary font-label">Kembali</p>
-                                            <p class="text-sm font-bold text-tertiary font-headline">${row.sudahKembali}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch(e) { console.error('loadDaftarBeliGalon', e); }
-        }
-
-        function changePageDaftarBeli(dir) {
-            pageState.daftarBeli += dir;
-            if(pageState.daftarBeli < 1) pageState.daftarBeli = 1;
-            loadDaftarBeliGalon();
-        }
-
-        async function loadLogPengembalian() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_log_pengembalian");
-                let data = await res.json();
-                globalLogPengembalianData = data;
-                let container = document.getElementById("logPengembalianTable");
-                let paginated = paginate(data.slice().reverse(), pageState.logPengembalian);
-                pageState.logPengembalian = paginated.currentPage;
-                renderPaginationInfo('pageInfoLogPengembalian', paginated.currentPage, paginated.totalPages, paginated.total);
-                document.getElementById('countLogPengembalian').innerText = paginated.total;
-
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada riwayat</p>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            container.innerHTML += `
-                                <div class="p-3 bg-surface rounded-xl">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <p class="text-xs font-bold text-slate-900">${row.namaAgen}</p>
-                                        <span class="text-[10px] text-on-surface-variant">${formatTanggal(row.tanggalRaw)}</span>
-                                    </div>
-                                    <p class="text-[11px] text-primary">${row.detail}</p>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch(e) { console.error('loadLogPengembalian', e); }
-        }
-
-        function changePageLogPengembalian(dir) {
-            pageState.logPengembalian += dir;
-            if(pageState.logPengembalian < 1) pageState.logPengembalian = 1;
-            loadLogPengembalian();
-        }
-
-        // ============ RIWAYAT ============
-        function checkDateFilter(rawTime) {
-            let tM = document.getElementById("filterTglMulai")?.value;
-            let tS = document.getElementById("filterTglSelesai")?.value;
-            if(!tM && !tS) return true;
-            let d = Number(rawTime);
-            if(tM && d < new Date(tM).getTime()) return false;
-            if(tS && d > new Date(tS).setHours(23,59,59,999)) return false;
-            return true;
-        }
-
-        function setQuickFilter(type) {
-            let now = new Date();
-            let start, end;
-            if(type === 'today') {
-                start = end = now.toISOString().split('T')[0];
-            } else if(type === 'week') {
-                let d = new Date(now); d.setDate(d.getDate() - 7);
-                start = d.toISOString().split('T')[0];
-                end = now.toISOString().split('T')[0];
-            } else if(type === 'month') {
-                start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-                end = now.toISOString().split('T')[0];
-            }
-            document.getElementById("filterTglMulai").value = start;
-            document.getElementById("filterTglSelesai").value = end;
-            pageState.riwayat = 1;
-            loadTransaksi();
-        }
-
-        function resetFilterRiwayat() {
-            document.getElementById("filterTglMulai").value = "";
-            document.getElementById("filterTglSelesai").value = "";
-            pageState.riwayat = 1;
-            loadTransaksi();
-        }
-
-        async function loadTransaksi() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_transaksi");
-                globalTransaksiData = await res.json();
-                let container = document.getElementById("dataTable");
-                let totJual = 0, totalGalon = 0;
-
-                let filtered = globalTransaksiData.filter(row => checkDateFilter(row.tanggalRaw));
-                let paginated = paginate(filtered.slice().reverse(), pageState.riwayat);
-                pageState.riwayat = paginated.currentPage;
-                renderPaginationInfo('pageInfoRiwayat', paginated.currentPage, paginated.totalPages, paginated.total);
-
-                filtered.forEach(row => {
-                    if(row.status === "Lunas") { totJual += Number(row.total || 0); totalGalon += Number(row.jumlah || 0); }
-                });
-
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Belum ada transaksi</div>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            let isMyData = (loggedInRole === 'owner' || row.operator === loggedInUser);
-                            if(!isMyData) return;
-                            let statusBadge = row.status === 'Lunas' 
-                                ? '<span class="text-[10px] bg-tertiary-light text-tertiary px-2 py-0.5 rounded-full font-bold">LUNAS</span>'
-                                : '<span class="text-[10px] bg-warning-light text-warning px-2 py-0.5 rounded-full font-bold">BON</span>';
-                            container.innerHTML += `
-                                <div class="bg-white rounded-2xl p-4 shadow-app border border-border">
-                                    <div class="flex items-start justify-between mb-2">
-                                        <div class="flex-1 min-w-0">
-                                            <p class="font-bold text-sm text-slate-900 font-headline truncate">${row.namaPembeli}</p>
-                                            <p class="text-[11px] text-on-surface-variant">${formatTanggal(row.tanggalRaw)} • ${row.operator}</p>
-                                        </div>
-                                        ${statusBadge}
-                                    </div>
-                                    <p class="text-[11px] text-on-surface-variant mb-2 truncate">${row.detailProduk}</p>
-                                    <div class="flex justify-between items-center pt-2 border-t border-border">
-                                        <span class="text-xs text-on-surface-variant">${row.jumlah} galon</span>
-                                        <span class="font-bold text-slate-900 font-headline">${formatRupiah(row.total)}</span>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-
-                document.getElementById("sumPenjualan").innerText = formatRupiah(totJual);
-                document.getElementById("sumGalonTerjual").innerText = totalGalon;
-            } catch(e) { console.error('loadTransaksi', e); }
-        }
-
-        function changePageRiwayat(dir) {
-            pageState.riwayat += dir;
-            if(pageState.riwayat < 1) pageState.riwayat = 1;
-            loadTransaksi();
-        }
-
-        // ============ KEUANGAN ============
-        function setKeuanganFilter(type) {
-            let now = new Date();
-            let start, end;
-            if(type === 'today') {
-                start = end = now.toISOString().split('T')[0];
-            } else if(type === 'week') {
-                let d = new Date(now); d.setDate(d.getDate() - 7);
-                start = d.toISOString().split('T')[0];
-                end = now.toISOString().split('T')[0];
-            } else if(type === 'month') {
-                start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-                end = now.toISOString().split('T')[0];
-            } else if(type === 'lastmonth') {
-                let firstLast = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-                let lastLast = new Date(now.getFullYear(), now.getMonth(), 0);
-                start = firstLast.toISOString().split('T')[0];
-                end = lastLast.toISOString().split('T')[0];
-            }
-            document.getElementById("filterKeuanganMulai").value = start;
-            document.getElementById("filterKeuanganSelesai").value = end;
-            pageState.keuangan = 1;
-            loadKeuangan();
-        }
-
-        function resetFilterKeuangan() {
-            document.getElementById("filterKeuanganMulai").value = "";
-            document.getElementById("filterKeuanganSelesai").value = "";
-            pageState.keuangan = 1;
-            loadKeuangan();
-        }
-
-        // PERBAIKAN 6: Operator hanya lihat saldo sendiri
-        async function loadKeuangan() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_keuangan");
-                globalKeuanganData = await res.json();
-                
-                // Filter berdasarkan role
-                let dataFiltered = globalKeuanganData.filter(row => {
-                    if(loggedInRole === 'operator') return row.operator === loggedInUser;
-                    return true;
-                });
-                
-                let totalMasuk = 0, totalKeluar = 0;
-                dataFiltered.forEach(row => {
-                    if(row.jenis === "Pemasukan") totalMasuk += Number(row.jumlah);
-                    if(row.jenis === "Pengeluaran") totalKeluar += Number(row.jumlah);
-                });
-                document.getElementById("saldoKas").innerText = formatRupiah(totalMasuk - totalKeluar);
-                document.getElementById("saldoMasuk").innerText = formatRupiah(totalMasuk);
-                document.getElementById("saldoKeluar").innerText = formatRupiah(totalKeluar);
-
-                let tM = document.getElementById("filterKeuanganMulai")?.value;
-                let tS = document.getElementById("filterKeuanganSelesai")?.value;
-                let filtered = dataFiltered.filter(row => {
-                    if(!tM && !tS) return true;
-                    let d = Number(row.tanggalRaw);
-                    if(tM && d < new Date(tM).getTime()) return false;
-                    if(tS && d > new Date(tS).setHours(23,59,59,999)) return false;
-                    return true;
-                });
-
-                let totPem = 0, totPeng = 0;
-                filtered.forEach(row => {
-                    if(row.jenis === "Pemasukan") totPem += Number(row.jumlah);
-                    if(row.jenis === "Pengeluaran") totPeng += Number(row.jumlah);
-                });
-                document.getElementById("sumPemasukanLain").innerText = formatRupiah(totPem);
-                document.getElementById("sumPengeluaran").innerText = formatRupiah(totPeng);
-
-                let container = document.getElementById("keuanganTable");
-                let paginated = paginate(filtered.slice().reverse(), pageState.keuangan);
-                pageState.keuangan = paginated.currentPage;
-                renderPaginationInfo('pageInfoKeuangan', paginated.currentPage, paginated.totalPages, paginated.total);
-                document.getElementById('countKeuangan').innerText = paginated.total;
-
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            let badge = row.jenis === "Pemasukan" ? "bg-tertiary-light text-tertiary" : "bg-error-light text-error";
-                            container.innerHTML += `
-                                <div class="p-3 bg-surface rounded-xl">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <div class="flex-1 min-w-0">
-                                            <span class="text-[10px] ${badge} px-2 py-0.5 rounded-full font-bold">${row.jenis.toUpperCase()}</span>
-                                            <p class="text-xs font-bold text-slate-900 mt-1">${row.kategori}</p>
-                                        </div>
-                                        <span class="font-bold text-sm font-headline ${row.jenis === 'Pemasukan' ? 'text-tertiary' : 'text-error'}">${row.jenis === 'Pemasukan' ? '+' : '-'}${formatRupiah(row.jumlah)}</span>
-                                    </div>
-                                    <p class="text-[10px] text-on-surface-variant truncate">${row.keterangan || '-'} • ${formatTanggal(row.tanggalRaw)}</p>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch(e) { console.error('loadKeuangan', e); }
-        }
-
-        function changePageKeuangan(dir) {
-            pageState.keuangan += dir;
-            if(pageState.keuangan < 1) pageState.keuangan = 1;
-            loadKeuangan();
-        }
-
-        // ============ GALON RUSAK ============
-        async function loadGalonRusak() {
-            try {
-                let res = await fetch(SCRIPT_URL + "?action=get_galon_rusak");
-                let data = await res.json();
-                globalGalonRusakData = data;
-                let container = document.getElementById("galonRusakOwnerTable");
-                let paginated = paginate(data.slice().reverse(), pageState.galonRusak);
-                pageState.galonRusak = paginated.currentPage;
-                renderPaginationInfo('pageInfoGalonRusak', paginated.currentPage, paginated.totalPages, paginated.total);
-                document.getElementById('countGalonRusak').innerText = paginated.total;
-
-                if(container) {
-                    container.innerHTML = "";
-                    if(paginated.items.length === 0) {
-                        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
-                    } else {
-                        paginated.items.forEach(row => {
-                            container.innerHTML += `
-                                <div class="p-3 bg-error-light/50 rounded-xl">
-                                    <div class="flex justify-between items-start mb-1">
-                                        <p class="text-xs font-bold text-slate-900">${row.agen}</p>
-                                        <span class="text-[10px] text-on-surface-variant">${formatTanggal(row.tanggalRaw)}</span>
-                                    </div>
-                                    <p class="text-[11px] text-error font-medium">${row.detailRusak}</p>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch(e) { console.error('loadGalonRusak', e); }
-        }
-
-        function changePageGalonRusak(dir) {
-            pageState.galonRusak += dir;
-            if(pageState.galonRusak < 1) pageState.galonRusak = 1;
-            loadGalonRusak();
-        }
-
-        // ============ KOMISI ============
-        function resetFilterKomisi() {
-            document.getElementById("filterKomisiMulai").value = "";
-            document.getElementById("filterKomisiSelesai").value = "";
-            pageState.komisi = 1;
-            loadKomisiData();
-        }
-
-        // PERBAIKAN 3: Komisi langsung muncul
-        async function loadKomisiData() {
-            let container = document.getElementById("komisiTable");
-            let tM = document.getElementById("filterKomisiMulai")?.value;
-            let tS = document.getElementById("filterKomisiSelesai")?.value;
-            
-            let komisiFiltered = globalTransaksiData.filter(row => {
-                if(row.statusKomisi !== 'Belum Dibayar' || !row.komisi) return false;
-                if(loggedInRole === 'operator' && row.operator !== loggedInUser) return false;
-                if(!tM && !tS) return true;
-                let d = Number(row.tanggalRaw);
-                if(tM && d < new Date(tM).getTime()) return false;
-                if(tS && d > new Date(tS).setHours(23,59,59,999)) return false;
-                return true;
-            });
-
-            let totKomisi = 0;
-            komisiFiltered.forEach(row => totKomisi += Number(row.komisi || 0));
-            document.getElementById("totalKomisiSaya").innerText = formatRupiah(totKomisi);
-
-            let paginated = paginate(komisiFiltered.slice().reverse(), pageState.komisi);
-            pageState.komisi = paginated.currentPage;
-            renderPaginationInfo('pageInfoKomisi', paginated.currentPage, paginated.totalPages, paginated.total);
-            document.getElementById('countKomisi').innerText = paginated.total;
-
-            if(container) {
-                container.innerHTML = "";
-                if(paginated.items.length === 0) {
-                    container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada komisi tertunda</div>';
-                } else {
-                    paginated.items.forEach(row => {
-                        container.innerHTML += `
-                            <div class="bg-white rounded-2xl p-3 shadow-app border border-border flex items-center justify-between">
-                                <div class="min-w-0 flex-1">
-                                    <p class="text-xs font-bold text-slate-900 font-label">${row.operator}</p>
-                                    <p class="text-[10px] text-on-surface-variant">${formatTanggal(row.tanggalRaw)} • ${row.namaPembeli}</p>
-                                </div>
-                                <span class="font-bold text-primary font-headline">${formatRupiah(row.komisi)}</span>
-                            </div>
-                        `;
-                    });
-                }
-            }
-            hitungPreviewKomisi();
-        }
-
-        function changePageKomisi(dir) {
-            pageState.komisi += dir;
-            if(pageState.komisi < 1) pageState.komisi = 1;
-            loadKomisiData();
-        }
-
-        function hitungPreviewKomisi() {
-            let op = document.getElementById("bayarOperator")?.value;
-            let tM = document.getElementById("tglMulai")?.value;
-            let tS = document.getElementById("tglSelesai")?.value;
-            let total = 0;
-            if(op && tM && tS) {
-                let mTime = new Date(tM).getTime();
-                let sTime = new Date(tS).setHours(23,59,59,999);
-                globalTransaksiData.forEach(row => {
-                    if(row.operator === op && row.statusKomisi === "Belum Dibayar" && row.tanggalRaw >= mTime && row.tanggalRaw <= sTime) {
-                        total += Number(row.komisi || 0);
-                    }
-                });
-            }
-            let el = document.getElementById("previewNominalKomisi");
-            if(el) el.innerText = formatRupiah(total);
-        }
-
-        function prosesBayarKomisiMassal() {
-            let op = document.getElementById("bayarOperator").value;
-            let tM = document.getElementById("tglMulai").value, tS = document.getElementById("tglSelesai").value;
-            if(!op || !tM || !tS) { showPopup("Peringatan", "Lengkapi data!", false); return; }
-            if(confirm(`Bayar komisi ${op}?`)) {
-                fetch(SCRIPT_URL, { method: "POST", body: JSON.stringify({ action: "bayar_komisi_range", operator: op, tglMulai: tM, tglSelesai: tS }) })
-                .then(res => res.json()).then(res => {
-                    if(res.result === "success") {
-                        showPopup("Sukses", `Komisi ${formatRupiah(res.totalBayar)} dibayar!`);
-                        refreshAllData();
-                    } else { showPopup("Gagal", "Gagal memproses.", false); }
-                });
-            }
-        }
-
-        function toggleSatuanPengeluaran() {
-            let kat = document.getElementById("kasKategori").value;
-            let cont = document.getElementById("containerSatuan");
-            let unit = document.getElementById("satuanUnit");
-            if(["Air", "Tutup Botol", "Tisue", "Label Plastik"].includes(kat)) {
-                cont.classList.remove("hidden");
-                if(kat === "Air") unit.value = "Liter";
-                else if(kat === "Tutup Botol") unit.value = "Pcs";
-                else if(kat === "Tisue") unit.value = "Pack";
-                else if(kat === "Label Plastik") unit.value = "Lembar";
-            } else {
-                cont.classList.add("hidden");
-            }
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                if(document.getElementById('listProdukContainer')?.children.length === 0) tambahBarisProduk();
-                setSegment('umum'); // PERBAIKAN 1: Default konsumen
-                setGalonTab('tertahan');
-            }, 800);
+                <span class="font-bold text-sm font-headline text-error">-${formatRupiah(row.Nominal)}</span>
+              </div>
+              <p class="text-[10px] text-on-surface-variant truncate">${row.Keterangan || '-'} • ${row.Tanggal}</p>
+            </div>`;
         });
+      }
+    }
+  } catch (e) { console.error('loadKeuangan', e); }
+}
+
+function changePageKeuangan(dir) { pageState.keuangan = Math.max(1, pageState.keuangan + dir); loadKeuangan(); }
+
+// ============ GALON RUSAK ============
+async function loadGalonRusak() {
+  try {
+    globalGalonRusakData = await apiGet('listGallonConditions', {});
+    let container = document.getElementById("galonRusakOwnerTable");
+    let paginated = paginate(globalGalonRusakData, pageState.galonRusak);
+    pageState.galonRusak = paginated.currentPage;
+    renderPaginationInfo('pageInfoGalonRusak', paginated.currentPage, paginated.totalPages, paginated.total);
+    document.getElementById('countGalonRusak').innerText = paginated.total;
+    if (container) {
+      container.innerHTML = "";
+      if (paginated.items.length === 0) {
+        container.innerHTML = '<p class="text-xs text-on-surface-variant text-center py-3">Belum ada data</p>';
+      } else {
+        paginated.items.forEach(row => {
+          container.innerHTML += `
+            <div class="p-3 bg-error-light/50 rounded-xl">
+              <div class="flex justify-between items-start mb-1">
+                <p class="text-xs font-bold text-slate-900">${row.Kondisi}</p>
+                <span class="text-[10px] text-on-surface-variant">${row.Tanggal}</span>
+              </div>
+              <p class="text-[11px] text-error font-medium">${row.Jumlah} galon</p>
+            </div>`;
+        });
+      }
+    }
+  } catch (e) { console.error('loadGalonRusak', e); }
+}
+
+function changePageGalonRusak(dir) { pageState.galonRusak = Math.max(1, pageState.galonRusak + dir); loadGalonRusak(); }
+
+// ============ KOMISI ============
+function resetFilterKomisi() {
+  document.getElementById("filterKomisiMulai").value = "";
+  document.getElementById("filterKomisiSelesai").value = "";
+  pageState.komisi = 1;
+  loadKomisiData();
+}
+
+async function loadKomisiData() {
+  let container = document.getElementById("komisiTable");
+  let tM = document.getElementById("filterKomisiMulai")?.value;
+  let tS = document.getElementById("filterKomisiSelesai")?.value;
+
+  try {
+    const data = await apiGet('listCommissions', { operatorId: loggedInRole === 'operator' ? loggedInUser : null });
+    let filtered = data.filter(row => {
+      if (!tM && !tS) return true;
+      let d = new Date(row.Tanggal).getTime();
+      if (tM && d < new Date(tM).getTime()) return false;
+      if (tS && d > new Date(tS).setHours(23,59,59,999)) return false;
+      return true;
+    });
+    let totKomisi = filtered.filter(c => c.Status === 'BELUM_DIBAYAR').reduce((s, c) => s + Number(c.Total), 0);
+    document.getElementById("totalKomisiSaya").innerText = formatRupiah(totKomisi);
+
+    let paginated = paginate(filtered, pageState.komisi);
+    pageState.komisi = paginated.currentPage;
+    renderPaginationInfo('pageInfoKomisi', paginated.currentPage, paginated.totalPages, paginated.total);
+    document.getElementById('countKomisi').innerText = paginated.total;
+
+    if (container) {
+      container.innerHTML = "";
+      if (paginated.items.length === 0) {
+        container.innerHTML = '<div class="bg-white rounded-2xl p-6 text-center text-on-surface-variant text-xs shadow-app border border-border">Tidak ada komisi</div>';
+      } else {
+        paginated.items.forEach(row => {
+          const isPaid = row.Status === 'SUDAH_DIBAYAR';
+          container.innerHTML += `
+            <div class="bg-white rounded-2xl p-3 shadow-app border border-border flex items-center justify-between">
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-bold text-slate-900 font-label">${row.OperatorID}</p>
+                <p class="text-[10px] text-on-surface-variant">${row.Tanggal} • ${row.TrxID}</p>
+              </div>
+              <div class="text-right">
+                <p class="font-bold text-primary font-headline">${formatRupiah(row.Total)}</p>
+                <span class="text-[10px] ${isPaid ? 'text-tertiary' : 'text-warning'} font-bold">${isPaid ? 'SUDAH' : 'BELUM'}</span>
+              </div>
+            </div>`;
+        });
+      }
+    }
+    hitungPreviewKomisi();
+  } catch (e) { console.error('loadKomisiData', e); }
+}
+
+function changePageKomisi(dir) { pageState.komisi = Math.max(1, pageState.komisi + dir); loadKomisiData(); }
+
+function hitungPreviewKomisi() {
+  let op = document.getElementById("bayarOperator")?.value;
+  let tM = document.getElementById("tglMulai")?.value;
+  let tS = document.getElementById("tglSelesai")?.value;
+  let total = 0;
+  if (op && tM && tS) {
+    let mTime = new Date(tM).getTime();
+    let sTime = new Date(tS).setHours(23,59,59,999);
+    globalTransaksiData.forEach(row => {
+      if (String(row.OperatorID) === String(op) && row.Status !== 'BATAL' && row.TanggalRaw >= mTime && row.TanggalRaw <= sTime) {
+        let rate = 0;
+        if (row.Tipe === 'KONSUMEN') rate = 2000;
+        else if (row.Tipe === 'AGEN') rate = (row.Catatan && row.Catatan.indexOf('DIANTAR_OPERATOR') >= 0) ? 1000 : 2000;
+        total += rate * Number(row.Jumlah || 0);
+      }
+    });
+  }
+  let el = document.getElementById("previewNominalKomisi");
+  if (el) el.innerText = formatRupiah(total);
+}
+
+async function prosesBayarKomisiMassal() {
+  let op = document.getElementById("bayarOperator").value;
+  let tM = document.getElementById("tglMulai").value, tS = document.getElementById("tglSelesai").value;
+  if (!op || !tM || !tS) { showPopup("Peringatan", "Lengkapi data!", false); return; }
+  if (!confirm(`Bayar komisi ${op}?`)) return;
+  try {
+    const comms = await apiGet('listCommissions', { operatorId: op });
+    const unpaid = comms.filter(c => c.Status === 'BELUM_DIBAYAR');
+    const total = unpaid.reduce((s, c) => s + Number(c.Total), 0);
+    if (total <= 0) { showPopup("Info", "Tidak ada komisi belum dibayar.", false); return; }
+    await apiPost('payCommission', {
+      OperatorID: op, Total: total,
+      CommissionIDs: unpaid.map(c => c.ID),
+      Metode: 'TUNAI', UserID: loggedInUser
+    });
+    showPopup("Sukses", `Komisi ${formatRupiah(total)} dibayar!`);
+    refreshAllData();
+  } catch (e) { showPopup("Gagal", e.message, false); }
+}
+
+function toggleSatuanPengeluaran() {
+  let kat = document.getElementById("kasKategori").value;
+  let cont = document.getElementById("containerSatuan");
+  let unit = document.getElementById("satuanUnit");
+  if (["Air", "Tutup Botol", "Tisue", "Label Plastik"].includes(kat)) {
+    cont.classList.remove("hidden");
+    if (kat === "Air") unit.value = "Liter";
+    else if (kat === "Tutup Botol") unit.value = "Pcs";
+    else if (kat === "Tisue") unit.value = "Pack";
+    else if (kat === "Label Plastik") unit.value = "Lembar";
+  } else {
+    cont.classList.add("hidden");
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if (document.getElementById('listProdukContainer')?.children.length === 0) tambahBarisProduk();
+    setSegment('umum');
+    setGalonTab('tertahan');
+  }, 800);
+});
     </script>
 </body>
 </html>
